@@ -1,7 +1,8 @@
 import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { formatDate, formatNumber, normalizeThreeJSData } from './utils.js';
 
-// Initialize Notyf with custom styling
+// Initialize Notyf
 const notyf = new Notyf({
   duration: 4000,
   position: { x: 'right', y: 'top' },
@@ -111,7 +112,7 @@ function renderTable(items, update = false) {
     row.className = 'opacity-0 transition-opacity duration-500';
     row.innerHTML = `
       <td class="px-5 py-3 item-name-cell" data-id="${item.id}">${item.name || 'Unnamed'}</td>
-      <td class="px-5 py-3">${item.quantity || 0}</td>
+      <td class="px-5 py-3">${formatNumber(item.quantity || 0)}</td>
       <td class="px-5 py-3">${item.category || '-'}</td>
       <td class="px-5 py-3">${item.location || '-'}</td>
       <td class="px-5 py-3">${item.dotClass || 'None'}</td>
@@ -146,14 +147,10 @@ function renderSalesTable(sales) {
   sales.forEach((sale, index) => {
     const row = document.createElement('tr');
     row.className = 'opacity-0 transition-opacity duration-500';
-    const timestamp = sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date(sale.timestamp);
-    const formattedTime = timestamp.toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
-    });
     row.innerHTML = `
-      <td class="px-5 py-3">${formattedTime}</td>
+      <td class="px-5 py-3">${formatDate(sale.timestamp)}</td>
       <td class="px-5 py-3">${sale.itemName || 'Unnamed'}</td>
-      <td class="px-5 py-3">${sale.quantity || 0}</td>
+      <td class="px-5 py-3">${formatNumber(sale.quantity || 0)}</td>
     `;
     fragment.appendChild(row);
     setTimeout(() => row.classList.remove('opacity-0'), index * 50);
@@ -180,8 +177,8 @@ function renderReports(reports) {
     row.className = 'opacity-0 transition-opacity duration-500';
     row.innerHTML = `
       <td class="px-5 py-3">${category || 'Uncategorized'}</td>
-      <td class="px-5 py-3">${data.totalItems || 0}</td>
-      <td class="px-5 py-3">${data.totalQuantity || 0}</td>
+      <td class="px-5 py-3">${formatNumber(data.totalItems || 0)}</td>
+      <td class="px-5 py-3">${formatNumber(data.totalQuantity || 0)}</td>
     `;
     fragment.appendChild(row);
     setTimeout(() => row.classList.remove('opacity-0'), index * 50);
@@ -191,7 +188,7 @@ function renderReports(reports) {
   renderCategoryChart(reports);
   
   // Dispatch event for Three.js chart
-  const event = new CustomEvent('reportsUpdated', { detail: { categories: reports } });
+  const event = new CustomEvent('reportsUpdated', { detail: { categories: normalizeThreeJSData(reports) } });
   window.dispatchEvent(event);
 }
 
@@ -210,12 +207,8 @@ function renderAuditTable(logs) {
   logs.forEach((log, index) => {
     const row = document.createElement('tr');
     row.className = 'opacity-0 transition-opacity duration-500';
-    const timestamp = log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp);
-    const formattedTime = timestamp.toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
-    });
     row.innerHTML = `
-      <td class="px-5 py-3">${formattedTime}</td>
+      <td class="px-5 py-3">${formatDate(log.timestamp)}</td>
       <td class="px-5 py-3">${log.action || '-'}</td>
       <td class="px-5 py-3">${log.itemName || '-'}</td>
       <td class="px-5 py-3">${log.details || '-'}</td>

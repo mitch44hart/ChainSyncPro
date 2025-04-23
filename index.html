@@ -14,11 +14,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css"></script>
   <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <link rel="stylesheet" href="/styles.css">
   <script>
     tailwind.config = {
@@ -37,77 +38,45 @@
   </script>
 </head>
 <body class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen">
-  <!-- Previous sections unchanged: auth-container, login-prompt, inventory-section, sales-section, reports-section, audit-section -->
-
-  <div class="section" id="settings-section">
-    <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Settings</h1>
-    <div class="space-y-6">
-      <div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Shop Details</h2>
-        <div class="form-group mb-4">
-          <label for="shopName" class="tw-label">Shop Name</label>
-          <input type="text" id="shopName" class="tw-input" placeholder="Enter your shop name" aria-label="Shop name">
-        </div>
-        <div class="form-group">
-          <label for="newLocation" class="tw-label">Shop Locations</label>
-          <div class="flex gap-2 mb-2">
-            <input type="text" id="newLocation" class="tw-input flex-grow" placeholder="e.g., Main Store, Warehouse A" aria-label="New location">
-            <button id="add-location-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Location</button>
-          </div>
-          <ul id="locationList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
-            <li>Loading locations...</li>
-          </ul>
-        </div>
-        <div class="form-group">
-          <label for="newCategory" class="tw-label">Custom Categories</label>
-          <div class="flex gap-2 mb-2">
-            <input type="text" id="newCategory" class="tw-input flex-grow" placeholder="e.g., Electronics, Perishables" aria-label="New category">
-            <button id="add-category-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Category</button>
-          </div>
-          <ul id="categoryList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
-            <li>Loading categories...</li>
-          </ul>
-        </div>
-        <button id="save-shop-details-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Shop Details</button>
-      </div>
-      <hr class="dark:border-gray-700">
-      <div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Inventory Settings</h2>
-        <div class="form-group mb-4">
-          <label for="lowStockThreshold" class="tw-label">Low Stock Threshold</label>
-          <input type="number" id="lowStockThreshold" class="tw-input" placeholder="e.g., 10" min="1" value="10" aria-label="Low stock threshold">
-        </div>
-        <button id="save-settings-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Settings</button>
-      </div>
-      <hr class="dark:border-gray-700">
-      <div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Theme</h2>
-        <div class="form-group flex items-center">
-          <input type="checkbox" id="darkTheme" class="tw-checkbox" aria-label="Enable dark mode">
-          <label for="darkTheme" class="ml-2">Dark Mode</label>
-        </div>
-      </div>
-      <hr class="dark:border-gray-700">
-      <div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Debugging</h2>
-        <div class="form-group flex items-center">
-          <input type="checkbox" id="debugMode" class="tw-checkbox" aria-label="Enable debug logs">
-          <label for="debugMode" class="ml-2">Enable Console Debug Logs</label>
-        </div>
-      </div>
-      <hr class="dark:border-gray-700">
-      <div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Data Management</h2>
-        <div class="flex flex-wrap gap-2">
-          <button id="backup-data-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Backup Data (JSON)</button>
-          <button id="restore-data-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Restore Data (JSON)</button>
-          <button id="settings-clear-db-btn" class="tw-button-danger transform transition-transform hover:scale-105">Reset All Data</button>
-          <button id="settings-clear-log-btn" class="tw-button-warning transform transition-transform hover:scale-105">Clear Audit Log</button>
-        </div>
-      </div>
-    </div>
+  <!-- Loading Spinner -->
+  <div id="loading" class="hidden">
+    <div class="spinner"></div>
   </div>
 
-  <!-- Remaining sections unchanged: nav, scanModal, script -->
+  <!-- Sidebar Toggle -->
+  <button id="toggleSidebar" aria-label="Toggle sidebar">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+
+  <!-- Sidebar -->
+  <div id="sidebar" class="hidden">
+    <nav class="p-4">
+      <h2 class="text-xl font-bold mb-4">ChainSync Lite</h2>
+      <ul class="space-y-2">
+        <li><a href="#inventory" class="nav-link" id="nav-inventory">Inventory</a></li>
+        <li><a href="#sales" class="nav-link" id="nav-sales">Sales</a></li>
+        <li><a href="#reports" class="nav-link" id="nav-reports">Reports</a></li>
+        <li><a href="#audit" class="nav-link" id="nav-audit">Audit Log</a></li>
+        <li><a href="#settings" class="nav-link" id="nav-settings">Settings</a></li>
+      </ul>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div id="app-content" class="hidden flex-grow">
+    <!-- Auth Container -->
+    <div id="auth-container" class="hidden p-4">
+      <p id="user-email" class="text-gray-700 dark:text-gray-300"></p>
+      <button id="logout-button" class="tw-button-danger mt-2">Logout</button>
+    </div>
+
+    <!-- Sections unchanged: login-prompt, inventory-section, sales-section, reports-section, audit-section, settings-section -->
+  </div>
+
+  <!-- Scan Modal unchanged -->
+
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

@@ -30,7 +30,9 @@ const elements = {
   authError: document.getElementById('auth-error'),
   navLinks: document.querySelectorAll('.nav-link'),
   debugMode: document.getElementById('debugMode'),
-  categoryChart: document.getElementById('categoryChart')
+  categoryChart: document.getElementById('categoryChart'),
+  toggleSidebar: document.getElementById('toggleSidebar'),
+  sidebar: document.getElementById('sidebar')
 };
 
 // Initialize App
@@ -42,14 +44,14 @@ async function initializeApp() {
       console.log('Firebase app initialized:', app);
     }
     
-    // Wait for auth and db initialization
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     if (!db || !dbAuth) {
       throw new Error('Database or auth not initialized.');
     }
     
     setupAuthListeners();
     setupNavigation();
+    setupSidebar();
     await loadTheme();
     setupThreeJSChart();
     registerServiceWorker();
@@ -180,6 +182,7 @@ function setupNavigation() {
       e.preventDefault();
       const section = link.getAttribute('href').substring(1);
       switchSection(section);
+      elements.sidebar.classList.remove('open');
       if (elements.debugMode?.checked) {
         console.log(`Navigated to section: ${section}`);
       }
@@ -187,7 +190,17 @@ function setupNavigation() {
   });
 }
 
-// Three.js Chart for Reports
+// Sidebar
+function setupSidebar() {
+  elements.toggleSidebar.addEventListener('click', () => {
+    elements.sidebar.classList.toggle('open');
+    if (elements.debugMode?.checked) {
+      console.log(`Sidebar toggled: ${elements.sidebar.classList.contains('open') ? 'open' : 'closed'}`);
+    }
+  });
+}
+
+// Three.js Chart
 function setupThreeJSChart() {
   if (!elements.categoryChart) return;
   
@@ -198,7 +211,6 @@ function setupThreeJSChart() {
   renderer.setSize(elements.categoryChart.clientWidth, elements.categoryChart.clientHeight);
   camera.position.z = 10;
   
-  // Placeholder: Add bars based on category data (updated by inventory.js)
   const addBars = (categories) => {
     scene.children.forEach(child => {
       if (child instanceof THREE.Mesh) scene.remove(child);
@@ -213,7 +225,6 @@ function setupThreeJSChart() {
     });
   };
   
-  // Animation loop
   function animate() {
     requestAnimationFrame(animate);
     scene.rotation.y += 0.01;
@@ -221,7 +232,6 @@ function setupThreeJSChart() {
   }
   animate();
   
-  // Update chart when reports are rendered
   window.addEventListener('reportsUpdated', (e) => {
     addBars(e.detail.categories);
   });
@@ -231,7 +241,7 @@ function setupThreeJSChart() {
   }
 }
 
-// Service Worker for PWA
+// Service Worker
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(reg => {

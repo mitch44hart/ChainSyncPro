@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { initInventory } from './inventory.js';
 import { switchSection, loadTheme, updateTheme, notyf } from './ui.js';
 import { db, auth as dbAuth } from './db.js';
+import { debugLog } from './utils.js';
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
 
 // Firebase Configuration
@@ -40,9 +41,7 @@ async function initializeApp() {
   try {
     elements.loading.classList.remove('hidden');
     const app = initializeApp(firebaseConfig);
-    if (elements.debugMode?.checked) {
-      console.log('Firebase app initialized:', app);
-    }
+    debugLog('Firebase app initialized', elements.debugMode);
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     if (!db || !dbAuth) {
@@ -74,16 +73,12 @@ function setupAuthListeners() {
         elements.loginPrompt.classList.add('hidden');
         elements.appContent.classList.remove('hidden');
         await initInventory();
-        if (elements.debugMode?.checked) {
-          console.log('User logged in:', user.email);
-        }
+        debugLog(`User logged in: ${user.email}`, elements.debugMode);
       } else {
         elements.authContainer.classList.add('hidden');
         elements.loginPrompt.classList.remove('hidden');
         elements.appContent.classList.add('hidden');
-        if (elements.debugMode?.checked) {
-          console.log('No user logged in.');
-        }
+        debugLog('No user logged in', elements.debugMode);
       }
     } catch (error) {
       console.error('Auth state change error:', error);
@@ -183,9 +178,7 @@ function setupNavigation() {
       const section = link.getAttribute('href').substring(1);
       switchSection(section);
       elements.sidebar.classList.remove('open');
-      if (elements.debugMode?.checked) {
-        console.log(`Navigated to section: ${section}`);
-      }
+      debugLog(`Navigated to section: ${section}`, elements.debugMode);
     });
   });
 }
@@ -194,9 +187,7 @@ function setupNavigation() {
 function setupSidebar() {
   elements.toggleSidebar.addEventListener('click', () => {
     elements.sidebar.classList.toggle('open');
-    if (elements.debugMode?.checked) {
-      console.log(`Sidebar toggled: ${elements.sidebar.classList.contains('open') ? 'open' : 'closed'}`);
-    }
+    debugLog(`Sidebar toggled: ${elements.sidebar.classList.contains('open') ? 'open' : 'closed'}`, elements.debugMode);
   });
 }
 
@@ -216,11 +207,11 @@ function setupThreeJSChart() {
       if (child instanceof THREE.Mesh) scene.remove(child);
     });
     
-    Object.entries(categories).forEach(([category, data], index) => {
-      const geometry = new THREE.BoxGeometry(0.8, data.totalQuantity / 10, 0.8);
+    categories.forEach((data, index) => {
+      const geometry = new THREE.BoxGeometry(0.8, data.normalized * 5, 0.8);
       const material = new THREE.MeshBasicMaterial({ color: 0x22c55e });
       const bar = new THREE.Mesh(geometry, material);
-      bar.position.set(index * 1.2 - (Object.keys(categories).length * 0.6), data.totalQuantity / 20, 0);
+      bar.position.set(index * 1.2 - (categories.length * 0.6), (data.normalized * 5) / 2, 0);
       scene.add(bar);
     });
   };
@@ -236,18 +227,14 @@ function setupThreeJSChart() {
     addBars(e.detail.categories);
   });
   
-  if (elements.debugMode?.checked) {
-    console.log('Three.js chart initialized.');
-  }
+  debugLog('Three.js chart initialized', elements.debugMode);
 }
 
 // Service Worker
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(reg => {
-      if (elements.debugMode?.checked) {
-        console.log('Service worker registered:', reg);
-      }
+      debugLog(`Service worker registered: ${reg.scope}`, elements.debugMode);
     }).catch(error => {
       console.error('Service worker registration failed:', error);
     });

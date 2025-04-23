@@ -1,408 +1,756 @@
-/*
- * Changes made to improve button functionality:
- * 1. Added strict DOM element checks in all button-related functions to prevent null errors.
- * 2. Improved error handling with try-catch blocks and user feedback via notifications.
- * 3. Simplified bulk import to reduce errors and added logging for debugging.
- * 4. Enhanced startScanner/stopScanner to handle library failures gracefully.
- * 5. Fixed exportToExcel to ensure SheetJS availability and proper data export.
- * 6. Added debug logging for all button actions to trace execution.
- * 7. Ensured async operations (e.g., saveItem) are properly awaited to prevent race conditions.
- */
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  getDoc,
+  setDoc
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { notyf, renderTable, renderSalesTable, renderReports, renderAuditTable, renderLocations, updateReportsSummary } from './ui.js';
 
-let inventory = [];
-let sales = [];
-let auditLog = [];
-let settings = {
-    theme: 'light',
-    shopName: '',
-    locations: [],
-    debugMode: false,
-    categories: [],
-    dotClassifications: [],
-    filters: { name: '', category: '', dot: '', quantity: 0 }
+// DOM Elements
+const elements = {
+  itemName: document.getElementById('itemName'),
+  quantity: document.getElementById('quantity'),
+  category: document.getElementById('category'),
+  location: document.getElementById('location'),
+  saleItemName: document.getElementById('saleItemName'),
+  saleQuantity: document.getElementById('saleQuantity'),
+  searchInput: document.getElementById('searchInput'),
+  quickAddBtn: document.getElementById('quick-add-item-btn'),
+  clearFormBtn: document.getElementById('clear-form-btn'),
+  startScanBtn: document.getElementById('start-scan-btn'),
+  scanModal: document.getElementById('scanModal'),
+  reader: document.getElementById('reader'),
+  cancelScanBtn: document.getElementById('cancel-scan-btn'),
+  scanModalCloseBtn: document.getElementById('scan-modal-close-btn'),
+  recordSaleBtn: document.getElementById('record-sale-btn'),
+  clearSaleFormBtn: document.getElementById('clear-sale-form-btn'),
+  reportExportExcelBtn: document.getElementById('report-export-excel-btn'),
+  reportExportPdfBtn: document.getElementById('report-export-pdf-btn'),
+  shopName: document.getElementById('shopName'),
+  newLocation: document.getElementById('newLocation'),
+  addLocationBtn: document.getElementById('add-location-btn'),
+  saveShopDetailsBtn: document.getElementById('save-shop-details-btn'),
+  debugMode: document.getElementById('debugMode'),
+  backupDataBtn: document.getElementById('backup-data-btn'),
+  settingsClearDbBtn: document.getElementById('settings-clear-db-btn'),
+  settingsClearLogBtn: document.getElementById('settings-clear-log-btn'),
+  newCategory: document.getElementById('newCategory'),
+  addCategoryBtn: document.getElementById('add-category-btn')
 };
-let html5QrCode = null;
-let currentPage = 1;
-const itemsPerPage = 20;
-let selectedItemId = null;
 
-function initializeApp() {
-    debugLog('[Inventory] Initializing app...');
-    try {
-        initializeDatabase(() => {
-            debugLog('[Inventory] Database ready, loading data...');
-            loadSettings();
-            loadInventory();
-            loadSales();
-            loadAuditLog();
-            showNotification('App initialized successfully.', 'success');
-        });
-    } catch (err) {
-        debugLog('[Inventory] Error initializing app', err);
-        showNotification('Error initializing app. Please refresh.', 'error');
+// State
+let lastInventoryDoc = null;
+let lastSalesDoc = null;
+const ITEMS_PER_PAGE = 10;
+let scanner = null;
+const DOT_CLASSES = [
+  'None',
+  'Flammable',
+  'Corrosive',
+  'Toxic',
+  'Oxidizer',
+  'Explosive',
+  'Gas',
+  'Radioactive',
+  'Miscellaneous'
+];
+
+// Load Inventory with Pagination
+async function loadInventory(searchTerm = '') {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  let q = query(
+    collection(db, 'users', user.uid, 'inventory'),
+    orderBy('name'),
+    limit(ITEMS_PER_PAGE)
+  );
+  
+  if (lastInventoryDoc) {
+    q = query(q, startAfter(lastInventoryDoc));
+  }
+  
+  try {
+    const snapshot = await getDocs(q);
+    lastInventoryDoc = snapshot.docs[snapshot.docs.length - 1];
+    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    if (searchTerm) {
+      const filtered = items.filter(item =>
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      renderTable(filtered);
+    } else {
+      renderTable(items);
     }
+    
+    updateReportsSummary(await calculateSummary());
+  } catch (error) {
+    console.error('Error loading inventory:', error);
+    notyf.error('Failed to load inventory.');
+  }
 }
 
-async function loadSettings() {
-    try {
-        const storedSettings = await getAllFromStore(SETTINGS_STORE);
-        storedSettings.forEach(s => {
-            if (s.key === 'theme') settings.theme = s.value;
-            if (s.key === 'shopName') settings.shopName = s.value;
-            if (s.key === 'locations') settings.locations = s.value;
-            if (s.key === 'debugMode') settings.debugMode = s.value;
-            if (s.key === 'categories') settings.categories = s.value;
-            if (s.key === 'dotClassifications') settings.dotClassifications = s.value;
-            if (s.key === 'filters') settings.filters = s.value;
-        });
-        const shopNameInput = document.getElementById('shopName');
-        const darkThemeCheckbox = document.getElementById('darkTheme');
-        const debugModeCheckbox = document.getElementById('debugMode');
-        if (shopNameInput) shopNameInput.value = settings.shopName || '';
-        if (darkThemeCheckbox) darkThemeCheckbox.checked = settings.theme === 'dark';
-        if (debugModeCheckbox) debugModeCheckbox.checked = settings.debugMode;
-        if (settings.theme === 'dark') document.documentElement.classList.add('dark');
-        debugLog('[Inventory] Settings loaded');
-    } catch (err) {
-        debugLog('[Inventory] Error loading settings', err);
-        showNotification('Error loading settings.', 'error');
-    }
+// Load Sales with Pagination
+async function loadSales() {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  let q = query(
+    collection(db, 'users', user.uid, 'sales'),
+    orderBy('timestamp', 'desc'),
+    limit(ITEMS_PER_PAGE)
+  );
+  
+  if (lastSalesDoc) {
+    q = query(q, startAfter(lastSalesDoc));
+  }
+  
+  try {
+    const snapshot = await getDocs(q);
+    lastSalesDoc = snapshot.docs[snapshot.docs.length - 1];
+    const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderSalesTable(sales);
+  } catch (error) {
+    console.error('Error loading sales:', error);
+    notyf.error('Failed to load sales.');
+  }
 }
 
-async function saveSettings(key, value) {
-    try {
-        await saveToStore(SETTINGS_STORE, { key, value });
-        settings[key] = value;
-        debugLog(`[Inventory] Saved setting: ${key}`);
-    } catch (err) {
-        debugLog('[Inventory] Error saving settings', err);
-        showNotification('Error saving settings.', 'error');
-    }
+// Calculate Reports Summary
+async function calculateSummary() {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return { totalItems: 0, totalStock: 0, totalValue: 0, categories: {} };
+  
+  try {
+    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
+    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const categories = {};
+    let totalItems = 0;
+    let totalStock = 0;
+    let totalValue = 0;
+    
+    items.forEach(item => {
+      const category = item.category || 'Uncategorized';
+      if (!categories[category]) {
+        categories[category] = { totalItems: 0, totalQuantity: 0 };
+      }
+      categories[category].totalItems += 1;
+      categories[category].totalQuantity += parseInt(item.quantity || 0);
+      totalItems += 1;
+      totalStock += parseInt(item.quantity || 0);
+      totalValue += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+    });
+    
+    renderReports(categories);
+    return { totalItems, totalStock, totalValue, categories };
+  } catch (error) {
+    console.error('Error calculating summary:', error);
+    notyf.error('Failed to generate reports.');
+    return { totalItems: 0, totalStock: 0, totalValue: 0, categories: {} };
+  }
 }
 
-async function loadInventory() {
-    try {
-        inventory = await getAllFromStore(INVENTORY_STORE);
-        renderTable();
-        updateReports();
-        updateLocationDropdown();
-        updateCategoryDropdown();
-        updateDotDropdown();
-        updateFilterDropdowns();
-        debugLog('[Inventory] Inventory loaded');
-    } catch (err) {
-        debugLog('[Inventory] Error loading inventory', err);
-        showNotification('Error loading inventory.', 'error');
-    }
+// Add Item
+async function addItem(itemData) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    notyf.error('Please log in to add items.');
+    return;
+  }
+  
+  try {
+    const itemRef = await addDoc(collection(db, 'users', user.uid, 'inventory'), {
+      ...itemData,
+      createdAt: new Date(),
+      dotClass: itemData.dotClass || 'None'
+    });
+    
+    await addAuditLog('ADD_ITEM', itemData.name, `Added ${itemData.quantity} units`);
+    notyf.success(`Added ${itemData.name} to inventory.`);
+    elements.itemName.classList.add('animate-pulse');
+    setTimeout(() => elements.itemName.classList.remove('animate-pulse'), 500);
+  } catch (error) {
+    console.error('Error adding item:', error);
+    notyf.error('Failed to add item.');
+  }
 }
 
-function quickAddItem() {
-    debugLog('[Inventory] Add Item button clicked');
-    try {
-        const itemNameInput = document.getElementById('itemName');
-        const quantityInput = document.getElementById('quantity');
-        const categorySelect = document.getElementById('category');
-        const locationSelect = document.getElementById('location');
-        const dotSelect = document.getElementById('dotClassification');
-
-        if (!itemNameInput || !quantityInput || !categorySelect || !locationSelect || !dotSelect) {
-            showNotification('Form elements missing. Please refresh.', 'error');
-            debugLog('[Inventory] Missing form elements');
-            return;
-        }
-
-        const itemName = itemNameInput.value.trim();
-        const quantity = parseInt(quantityInput.value) || 1;
-        let category = categorySelect.value;
-        const location = locationSelect.value || 'Store';
-        let dotClassification = dotSelect.value;
-
-        if (!itemName) {
-            showNotification('Item name is required.', 'error');
-            return;
-        }
-        if (quantity < 1) {
-            showNotification('Quantity must be at least 1.', 'error');
-            return;
-        }
-
-        if (category === 'add-new') {
-            const newCategory = prompt('Enter new category name:');
-            if (newCategory && !settings.categories.includes(newCategory)) {
-                settings.categories.push(newCategory);
-                saveSettings('categories', settings.categories);
-                updateCategoryDropdown();
-                category = newCategory;
-            } else {
-                category = '';
-            }
-        }
-
-        if (dotClassification === 'add-new') {
-            const newDot = prompt('Enter new DOT classification:');
-            if (newDot && !settings.dotClassifications.includes(newDot)) {
-                settings.dotClassifications.push(newDot);
-                saveSettings('dotClassifications', settings.dotClassifications);
-                updateDotDropdown();
-                dotClassification = newDot;
-            } else {
-                dotClassification = '';
-            }
-        }
-
-        const item = { itemName, quantity, category: category || 'Uncategorized', location, dotClassification };
-        const existingItem = inventory.find(i => i.itemName.toLowerCase() === itemName.toLowerCase() && i.location === location);
-
-        if (existingItem) {
-            existingItem.quantity += quantity;
-            saveItem(existingItem, true, 'update');
-        } else {
-            saveItem(item, false, 'add');
-        }
-    } catch (err) {
-        debugLog('[Inventory] Error adding item', err);
-        showNotification('Error adding item.', 'error');
-    }
+// Edit Item
+async function editItem(itemId, updatedData) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    await updateDoc(doc(db, 'users', user.uid, 'inventory', itemId), updatedData);
+    await addAuditLog('EDIT_ITEM', updatedData.name, `Updated details`);
+    notyf.success(`Updated ${updatedData.name}.`);
+  } catch (error) {
+    console.error('Error editing item:', error);
+    notyf.error('Failed to update item.');
+  }
 }
 
-async function saveItem(item, isUpdate = false, action = 'add') {
-    if (!isDbReady()) {
-        showNotification('Database not ready.', 'error');
-        return;
-    }
-    try {
-        const transaction = db.transaction([INVENTORY_STORE, AUDIT_STORE], 'readwrite');
-        const store = transaction.objectStore(INVENTORY_STORE);
-        const auditStore = transaction.objectStore(AUDIT_STORE);
-        const request = store.put(item);
-        request.onsuccess = () => {
-            const auditEntry = {
-                timestamp: Date.now(),
-                action: isUpdate ? 'update' : 'add',
-                itemName: item.itemName,
-                details: JSON.stringify({ quantity: item.quantity, location: item.location, dotClassification: item.dotClassification })
-            };
-            auditStore.add(auditEntry);
-            transaction.oncomplete = () => {
-                loadInventory();
-                loadAuditLog();
-                showNotification(`Item ${isUpdate ? 'updated' : 'added'} successfully.`, 'success');
-                clearForm();
-            };
-        };
-        request.onerror = () => {
-            debugLog('[Inventory] Error saving item');
-            showNotification('Error saving item.', 'error');
-        };
-    } catch (err) {
-        debugLog('[Inventory] Error saving item', err);
-        showNotification('Error saving item.', 'error');
-    }
+// Delete Item
+async function deleteItem(itemId, itemName) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    await deleteDoc(doc(db, 'users', user.uid, 'inventory', itemId));
+    await addAuditLog('DELETE_ITEM', itemName, `Removed from inventory`);
+    notyf.success(`Deleted ${itemName}.`);
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    notyf.error('Failed to delete item.');
+  }
 }
 
-function clearForm() {
-    debugLog('[Inventory] Clear Form button clicked');
-    try {
-        const itemName = document.getElementById('itemName');
-        const quantity = document.getElementById('quantity');
-        const category = document.getElementById('category');
-        const location = document.getElementById('location');
-        const dotClassification = document.getElementById('dotClassification');
-        if (itemName) itemName.value = '';
-        if (quantity) quantity.value = '1';
-        if (category) category.value = '';
-        if (location) location.value = '';
-        if (dotClassification) dotClassification.value = '';
-        if (itemName) itemName.focus();
-    } catch (err) {
-        debugLog('[Inventory] Error clearing form', err);
-        showNotification('Error clearing form.', 'error');
+// Record Sale
+async function recordSale(saleData) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    notyf.error('Please log in to record sales.');
+    return;
+  }
+  
+  try {
+    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
+    const item = snapshot.docs.find(doc => doc.data().name === saleData.itemName);
+    
+    if (!item) {
+      notyf.error('Item not found in inventory.');
+      return;
     }
+    
+    const currentQuantity = parseInt(item.data().quantity || 0);
+    if (currentQuantity < saleData.quantity) {
+      notyf.error('Insufficient stock for sale.');
+      return;
+    }
+    
+    await addDoc(collection(db, 'users', user.uid, 'sales'), {
+      ...saleData,
+      timestamp: new Date()
+    });
+    
+    await updateDoc(doc(db, 'users', user.uid, 'inventory', item.id), {
+      quantity: currentQuantity - saleData.quantity
+    });
+    
+    await addAuditLog('RECORD_SALE', saleData.itemName, `Sold ${saleData.quantity} units`);
+    notyf.success(`Recorded sale of ${saleData.quantity} ${saleData.itemName}.`);
+    elements.saleItemName.classList.add('animate-pulse');
+    setTimeout(() => elements.saleItemName.classList.remove('animate-pulse'), 500);
+  } catch (error) {
+    console.error('Error recording sale:', error);
+    notyf.error('Failed to record sale.');
+  }
 }
 
+// Barcode Scanner
 function startScanner() {
-    debugLog('[Inventory] Scan button clicked');
-    try {
-        if (!window.Html5Qrcode) {
-            showNotification('Barcode scanner library not loaded.', 'error');
-            debugLog('[Inventory] Html5Qrcode library missing');
-            return;
-        }
-        openModal('scanModal');
-        html5QrCode = new Html5Qrcode('reader');
-        const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
-        html5QrCode.start(
-            { facingMode: 'environment' },
-            qrConfig,
-            (decodedText) => {
-                const itemNameInput = document.getElementById('itemName');
-                if (itemNameInput) {
-                    itemNameInput.value = decodedText;
-                    showNotification('Barcode scanned successfully.', 'success');
-                    stopScanner();
-                } else {
-                    debugLog('[Inventory] itemName input not found');
-                    showNotification('Error: Item name input not found.', 'error');
-                }
-            },
-            (error) => {
-                debugLog('[Inventory] QR scan error', error);
-            }
-        ).catch(err => {
-            debugLog('[Inventory] Error starting scanner', err);
-            showNotification('Error starting scanner. Check camera permissions.', 'error');
-            stopScanner();
-        });
-    } catch (err) {
-        debugLog('[Inventory] Error in startScanner', err);
-        showNotification('Error starting scanner.', 'error');
+  elements.scanModal.classList.remove('hidden');
+  elements.reader.classList.add('border-4', 'border-blue-500', 'animate-pulse');
+  
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      elements.itemName.value = decodedText;
+      stopScanner();
+      notyf.success('Barcode scanned successfully.');
+      elements.itemName.focus();
+    },
+    (error) => {
+      if (elements.debugMode.checked) {
+        console.warn('QR Code scan error:', error);
+      }
     }
+  ).catch(err => {
+    console.error('Error starting scanner:', err);
+    notyf.error('Failed to access camera. Please check permissions.');
+    stopScanner();
+  });
 }
 
 function stopScanner() {
-    debugLog('[Inventory] Cancel Scan button clicked');
-    try {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear();
-                html5QrCode = null;
-                closeModal('scanModal');
-                debugLog('[Inventory] Scanner stopped');
-            }).catch(err => {
-                debugLog('[Inventory] Error stopping scanner', err);
-                showNotification('Error stopping scanner.', 'error');
-            });
-        } else {
-            closeModal('scanModal');
-        }
-    } catch (err) {
-        debugLog('[Inventory] Error in stopScanner', err);
-        showNotification('Error stopping scanner.', 'error');
-    }
+  if (scanner) {
+    scanner.stop().then(() => {
+      scanner = null;
+      elements.scanModal.classList.add('hidden');
+      elements.reader.classList.remove('border-4', 'border-blue-500', 'animate-pulse');
+    }).catch(err => {
+      console.error('Error stopping scanner:', err);
+      notyf.error('Failed to stop scanner.');
+    });
+  }
 }
 
-function openBulkImportModal() {
-    debugLog('[Inventory] Bulk Import button clicked');
-    try {
-        openModal('bulkImportModal');
-    } catch (err) {
-        debugLog('[Inventory] Error opening bulk import modal', err);
-        showNotification('Error opening bulk import.', 'error');
-    }
+// Export to Excel
+async function exportToExcel() {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
+    const items = snapshot.docs.map(doc => doc.data());
+    
+    const worksheet = XLSX.utils.json_to_sheet(items.map(item => ({
+      Name: item.name,
+      Quantity: item.quantity,
+      Category: item.category,
+      Location: item.location,
+      DOTClass: item.dotClass,
+      Price: item.price
+    })));
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory');
+    XLSX.writeFile(workbook, 'inventory_export.xlsx');
+    
+    await addAuditLog('EXPORT_EXCEL', null, 'Exported inventory to Excel');
+    notyf.success('Inventory exported to Excel.');
+  } catch (error) {
+    console.error('Error exporting to Excel:', error);
+    notyf.error('Failed to export inventory.');
+  }
 }
 
-async function importBulkItems() {
-    debugLog('[Inventory] Import button clicked');
-    try {
-        const fileInput = document.getElementById('bulkImportFile');
-        if (!fileInput || !fileInput.files.length) {
-            showNotification('Please select a CSV file.', 'error');
-            debugLog('[Inventory] No file selected for bulk import');
-            return;
-        }
-        if (!window.XLSX) {
-            showNotification('CSV import library not loaded.', 'error');
-            debugLog('[Inventory] SheetJS library missing');
-            return;
-        }
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(sheet);
-                const transaction = db.transaction([INVENTORY_STORE, AUDIT_STORE], 'readwrite');
-                const store = transaction.objectStore(INVENTORY_STORE);
-                const auditStore = transaction.objectStore(AUDIT_STORE);
-                for (const row of json) {
-                    const item = {
-                        itemName: row['Item Name']?.toString() || '',
-                        quantity: parseInt(row['Quantity']) || 1,
-                        category: row['Category']?.toString() || 'Uncategorized',
-                        location: row['Location']?.toString() || 'Store',
-                        dotClassification: row['DOT Classification']?.toString() || ''
-                    };
-                    if (!item.itemName) {
-                        debugLog('[Inventory] Skipping row with empty item name');
-                        continue;
-                    }
-                    const existingItem = inventory.find(i => i.itemName.toLowerCase() === item.itemName.toLowerCase() && i.location === item.location);
-                    if (existingItem) {
-                        existingItem.quantity += item.quantity;
-                        store.put(existingItem);
-                        auditStore.add({
-                            timestamp: Date.now(),
-                            action: 'update',
-                            itemName: existingItem.itemName,
-                            details: JSON.stringify({ quantity: existingItem.quantity, location: existingItem.location, dotClassification: existingItem.dotClassification })
-                        });
-                    } else {
-                        store.put(item);
-                        auditStore.add({
-                            timestamp: Date.now(),
-                            action: 'add',
-                            itemName: item.itemName,
-                            details: JSON.stringify({ quantity: item.quantity, location: item.location, dotClassification: item.dotClassification })
-                        });
-                    }
-                }
-                transaction.oncomplete = () => {
-                    loadInventory();
-                    loadAuditLog();
-                    showNotification('Items imported successfully.', 'success');
-                    closeModal('bulkImportModal');
-                    fileInput.value = '';
-                };
-            } catch (err) {
-                debugLog('[Inventory] Error processing CSV', err);
-                showNotification('Error processing CSV file.', 'error');
-            }
-        };
-        reader.onerror = () => {
-            debugLog('[Inventory] Error reading file');
-            showNotification('Error reading CSV file.', 'error');
-        };
-        reader.readAsArrayBuffer(file);
-    } catch (err) {
-        debugLog('[Inventory] Error in bulk import', err);
-        showNotification('Error during bulk import.', 'error');
-    }
+// Export to PDF
+async function exportToPDF() {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
+    const items = snapshot.docs.map(doc => doc.data());
+    
+    doc.text('ChainSync Lite - Inventory Report', 10, 10);
+    doc.autoTable({
+      startY: 20,
+      head: [['Name', 'Quantity', 'Category', 'Location', 'DOT Class', 'Price']],
+      body: items.map(item => [
+        item.name,
+        item.quantity,
+        item.category || '-',
+        item.location || '-',
+        item.dotClass || 'None',
+        item.price ? `$${item.price}` : '-'
+      ])
+    });
+    
+    doc.save('inventory_report.pdf');
+    await addAuditLog('EXPORT_PDF', null, 'Exported inventory to PDF');
+    notyf.success('Inventory exported to PDF.');
+  } catch (error) {
+    console.error('Error exporting to PDF:', error);
+    notyf.error('Failed to export inventory.');
+  }
 }
 
-function exportToExcel() {
-    debugLog('[Inventory] Export to Excel button clicked');
-    try {
-        if (!window.XLSX) {
-            showNotification('Excel export library not loaded.', 'error');
-            debugLog('[Inventory] SheetJS library missing');
-            return;
-        }
-        const data = inventory.map(item => ({
-            'Item Name': item.itemName,
-            Quantity: item.quantity,
-            Category: item.category,
-            Location: item.location,
-            'DOT Classification': item.dotClassification || ''
-        }));
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory');
-        XLSX.writeFile(workbook, `ChainSyncLite_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
-        showNotification('Inventory exported to Excel.', 'success');
-    } catch (err) {
-        debugLog('[Inventory] Error exporting to Excel', err);
-        showNotification('Error exporting to Excel.', 'error');
+// Manage Locations
+async function addLocation(location) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    const locations = userDoc.exists() && userDoc.data().locations ? userDoc.data().locations : [];
+    
+    if (locations.includes(location)) {
+      notyf.error('Location already exists.');
+      return;
     }
+    
+    locations.push(location);
+    await setDoc(userDocRef, { locations }, { merge: true });
+    renderLocations(locations, elements.location);
+    notyf.success(`Added location: ${location}`);
+    elements.newLocation.classList.add('animate-pulse');
+    setTimeout(() => elements.newLocation.classList.remove('animate-pulse'), 500);
+  } catch (error) {
+    console.error('Error adding location:', error);
+    notyf.error('Failed to add location.');
+  }
 }
 
-// Placeholder for functions not fully implemented in this snippet
-function renderTable() { debugLog('[Inventory] renderTable called (placeholder)'); }
-function updateReports() { debugLog('[Inventory] updateReports called (placeholder)'); }
-function updateLocationDropdown() { debugLog('[Inventory] updateLocationDropdown called (placeholder)'); }
-function updateCategoryDropdown() { debugLog('[Inventory] updateCategoryDropdown called (placeholder)'); }
-function updateDotDropdown() { debugLog('[Inventory] updateDotDropdown called (placeholder)'); }
-function updateFilterDropdowns() { debugLog('[Inventory] updateFilterDropdowns called (placeholder)'); }
-function loadSales() { debugLog('[Inventory] loadSales called (placeholder)'); }
-function loadAuditLog() { debugLog('[Inventory] loadAuditLog called (placeholder)'); }
+async function deleteLocation(location) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    const locations = userDoc.exists() && userDoc.data().locations ? userDoc.data().locations : [];
+    
+    const updatedLocations = locations.filter(loc => loc !== location);
+    await setDoc(userDocRef, { locations: updatedLocations }, { merge: true });
+    renderLocations(updatedLocations, elements.location);
+    notyf.success(`Deleted location: ${location}`);
+  } catch (error) {
+    console.error('Error deleting location:', error);
+    notyf.error('Failed to delete location.');
+  }
+}
+
+// Manage Categories
+async function addCategory(category) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    const categories = userDoc.exists() && userDoc.data().categories ? userDoc.data().categories : [];
+    
+    if (categories.includes(category)) {
+      notyf.error('Category already exists.');
+      return;
+    }
+    
+    categories.push(category);
+    await setDoc(userDocRef, { categories }, { merge: true });
+    renderCategoryOptions(categories);
+    notyf.success(`Added category: ${category}`);
+  } catch (error) {
+    console.error('Error adding category:', error);
+    notyf.error('Failed to add category.');
+  }
+}
+
+async function renderCategoryOptions(categories) {
+  const categorySelect = document.createElement('select');
+  categorySelect.id = 'category';
+  categorySelect.className = 'tw-input';
+  categorySelect.setAttribute('aria-label', 'Category');
+  
+  categorySelect.innerHTML = '<option value="">Select or type category</option>';
+  (categories || []).forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categorySelect.appendChild(option);
+  });
+  
+  elements.category.replaceWith(categorySelect);
+  elements.category = categorySelect;
+}
+
+// Audit Log
+async function addAuditLog(action, itemName, details) {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    await addDoc(collection(db, 'users', user.uid, 'audit'), {
+      action,
+      itemName,
+      details,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('Error adding audit log:', error);
+  }
+}
+
+// Real-Time Listeners
+function setupRealtimeListeners() {
+  const db = getFirestore();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  onSnapshot(collection(db, 'users', user.uid, 'inventory'), () => {
+    loadInventory(elements.searchInput.value);
+  });
+  
+  onSnapshot(collection(db, 'users', user.uid, 'sales'), () => {
+    loadSales();
+  });
+  
+  onSnapshot(collection(db, 'users', user.uid, 'audit'), (snapshot) => {
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderAuditTable(logs);
+  });
+  
+  onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      renderLocations(data.locations || [], elements.location);
+      renderCategoryOptions(data.categories || []);
+    }
+  });
+}
+
+// Keyboard Shortcuts
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter' && elements.itemName === document.activeElement) {
+      elements.quickAddBtn.click();
+    }
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      elements.startScanBtn.click();
+    }
+    if (e.ctrlKey && e.key === 'r' && elements.saleItemName === document.activeElement) {
+      elements.recordSaleBtn.click();
+    }
+  });
+}
+
+// Initialize Inventory
+async function initInventory() {
+  if (!elements.quickAddBtn || !elements.clearFormBtn || !elements.startScanBtn) {
+    console.error('Required DOM elements not found.');
+    notyf.error('Application initialization failed.');
+    return;
+  }
+  
+  elements.quickAddBtn.addEventListener('click', async () => {
+    const itemData = {
+      name: elements.itemName.value.trim(),
+      quantity: parseInt(elements.quantity.value) || 1,
+      category: elements.category.value.trim(),
+      location: elements.location.value.trim(),
+      dotClass: elements.dotClass?.value || 'None'
+    };
+    
+    if (!itemData.name) {
+      notyf.error('Item name is required.');
+      return;
+    }
+    
+    await addItem(itemData);
+    elements.itemName.value = '';
+    elements.quantity.value = '1';
+    elements.category.value = '';
+    elements.location.value = '';
+  });
+  
+  elements.clearFormBtn.addEventListener('click', () => {
+    elements.itemName.value = '';
+    elements.quantity.value = '1';
+    elements.category.value = '';
+    elements.location.value = '';
+    notyf.success('Form cleared.');
+  });
+  
+  elements.startScanBtn.addEventListener('click', startScanner);
+  elements.cancelScanBtn.addEventListener('click', stopScanner);
+  elements.scanModalCloseBtn.addEventListener('click', stopScanner);
+  
+  elements.recordSaleBtn.addEventListener('click', async () => {
+    const saleData = {
+      itemName: elements.saleItemName.value.trim(),
+      quantity: parseInt(elements.saleQuantity.value) || 1
+    };
+    
+    if (!saleData.itemName) {
+      notyf.error('Item name is required.');
+      return;
+    }
+    
+    await recordSale(saleData);
+    elements.saleItemName.value = '';
+    elements.saleQuantity.value = '1';
+  });
+  
+  elements.clearSaleFormBtn.addEventListener('click', () => {
+    elements.saleItemName.value = '';
+    elements.saleQuantity.value = '1';
+    notyf.success('Sale form cleared.');
+  });
+  
+  elements.searchInput.addEventListener('input', () => {
+    lastInventoryDoc = null;
+    loadInventory(elements.searchInput.value);
+  });
+  
+  elements.reportExportExcelBtn.addEventListener('click', exportToExcel);
+  elements.reportExportPdfBtn.addEventListener('click', exportToPDF);
+  
+  elements.addLocationBtn.addEventListener('click', () => {
+    const location = elements.newLocation.value.trim();
+    if (!location) {
+      notyf.error('Location name is required.');
+      return;
+    }
+    addLocation(location);
+    elements.newLocation.value = '';
+  });
+  
+  elements.saveShopDetailsBtn.addEventListener('click', async () => {
+    const db = getFirestore();
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        shopName: elements.shopName.value.trim()
+      }, { merge: true });
+      notyf.success('Shop details saved.');
+    } catch (error) {
+      console.error('Error saving shop details:', error);
+      notyf.error('Failed to save shop details.');
+    }
+  });
+  
+  elements.backupDataBtn.addEventListener('click', async () => {
+    const db = getFirestore();
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const inventory = await getDocs(collection(db, 'users', user.uid, 'inventory'));
+      const sales = await getDocs(collection(db, 'users', user.uid, 'sales'));
+      const audit = await getDocs(collection(db, 'users', user.uid, 'audit'));
+      
+      const backup = {
+        inventory: inventory.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        sales: sales.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        audit: audit.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      };
+      
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'chainsync_backup.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      notyf.success('Data backed up successfully.');
+    } catch (error) {
+      console.error('Error backing up data:', error);
+      notyf.error('Failed to backup data.');
+    }
+  });
+  
+  elements.settingsClearDbBtn.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to reset all data? This cannot be undone.')) return;
+    
+    const db = getFirestore();
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const collections = ['inventory', 'sales', 'audit'];
+      for (const col of collections) {
+        const snapshot = await getDocs(collection(db, 'users', user.uid, col));
+        for (const docSnap of snapshot.docs) {
+          await deleteDoc(doc(db, 'users', user.uid, col, docSnap.id));
+        }
+      }
+      notyf.success('All data reset.');
+    } catch (error) {
+      console.error('Error resetting data:', error);
+      notyf.error('Failed to reset data.');
+    }
+  });
+  
+  elements.settingsClearLogBtn.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to clear the audit log? This cannot be undone.')) return;
+    
+    const db = getFirestore();
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const snapshot = await getDocs(collection(db, 'users', user.uid, 'audit'));
+      for (const docSnap of snapshot.docs) {
+        await deleteDoc(doc(db, 'users', user.uid, 'audit', docSnap.id));
+      }
+      notyf.success('Audit log cleared.');
+    } catch (error) {
+      console.error('Error clearing audit log:', error);
+      notyf.error('Failed to clear audit log.');
+    }
+  });
+  
+  elements.inventoryBody.addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('.edit-item-btn');
+    const deleteBtn = e.target.closest('.delete-item-btn');
+    
+    if (editBtn) {
+      const itemId = editBtn.dataset.id;
+      const itemName = prompt('Enter new item name:', editBtn.closest('tr').children[0].textContent);
+      if (itemName) {
+        await editItem(itemId, { name: itemName });
+      }
+    }
+    
+    if (deleteBtn) {
+      const itemId = deleteBtn.dataset.id;
+      const itemName = deleteBtn.closest('tr').children[0].textContent;
+      if (confirm(`Are you sure you want to delete ${itemName}?`)) {
+        await deleteItem(itemId, itemName);
+      }
+    }
+  });
+  
+  elements.locationList.addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.delete-location-btn');
+    if (deleteBtn) {
+      const location = deleteBtn.dataset.location;
+      if (confirm(`Are you sure you want to delete ${location}?`)) {
+        deleteLocation(location);
+      }
+    }
+  });
+  
+  await loadInventory();
+  await loadSales();
+  setupRealtimeListeners();
+  setupKeyboardShortcuts();
+}
+
+export { initInventory };

@@ -4,7 +4,7 @@
   status = 200
 
 [build]
-  command = "echo 'No build command required'"
+  command = "npm install && npx tailwindcss -i ./styles.css -o ./dist/styles.css --minify"
   publish = "."
 
 [[headers]]

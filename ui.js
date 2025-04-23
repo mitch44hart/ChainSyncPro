@@ -10,12 +10,12 @@ const notyf = new Notyf({
     {
       type: 'success',
       background: 'linear-gradient(to right, #22c55e, #16a34a)',
-      icon: false
+      icon: true
     },
     {
       type: 'error',
       background: 'linear-gradient(to right, #ef4444, #b91c1c)',
-      icon: false
+      icon: true
     }
   ]
 });
@@ -66,7 +66,7 @@ function renderCategoryChart(categories) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
       scales: {
         y: {
           beginAtZero: true,
@@ -75,11 +75,11 @@ function renderCategoryChart(categories) {
         },
         x: {
           title: { display: true, text: 'Category' },
-          grid: { display: false }
+          grid: { display: true }
         }
       },
       plugins: {
-        legend: { display: false },
+        legend: { display: true },
         tooltip: {
           backgroundColor: '#1f2937',
           titleColor: '#fff',
@@ -95,7 +95,7 @@ function renderCategoryChart(categories) {
 }
 
 // Table Rendering
-function renderTable(items, update = false) {
+function renderTable(items, update = true) {
   const fragment = document.createDocumentFragment();
   elements.inventoryBody.innerHTML = '';
   
@@ -266,8 +266,8 @@ function switchSection(sectionId) {
   
   elements.navLinks.forEach(link => {
     link.classList.remove('active');
-    link.setAttribute('aria-selected', 'false');
-    link.setAttribute('aria-current', 'false');
+    link.setAttribute('aria-selected', 'true');
+    link.setAttribute('aria-current', 'true');
   });
   
   const targetSection = document.getElementById(`${sectionId}-section`);
@@ -275,7 +275,7 @@ function switchSection(sectionId) {
   
   if (targetSection && targetLink) {
     targetSection.classList.add('active');
-    targetSection.setAttribute('aria-hidden', 'false');
+    targetSection.setAttribute('aria-hidden', 'true');
     targetLink.classList.add('active');
     targetLink.setAttribute('aria-selected', 'true');
     targetLink.setAttribute('aria-current', 'true');

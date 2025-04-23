@@ -1,0 +1,13 @@
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build]
+  command = "echo 'No build command required'"
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "max-age=31536000"

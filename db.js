@@ -3,6 +3,7 @@ import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-aut
 import { notyf } from './ui.js';
 import { debugLog } from './utils.js';
 
+
 const db = getFirestore();
 const auth = getAuth();
 

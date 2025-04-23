@@ -189,6 +189,10 @@ function renderReports(reports) {
   
   elements.reportsBody.appendChild(fragment);
   renderCategoryChart(reports);
+  
+  // Dispatch event for Three.js chart
+  const event = new CustomEvent('reportsUpdated', { detail: { categories: reports } });
+  window.dispatchEvent(event);
 }
 
 function renderAuditTable(logs) {
@@ -316,6 +320,8 @@ async function loadTheme() {
       console.error('Error loading theme preference:', error);
       updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
+  } else {
+    updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 }
 
@@ -344,4 +350,13 @@ function setupTableSorting(tableId, bodyId, sortColAttr) {
       
       const tbody = document.getElementById(bodyId);
       tbody.innerHTML = '';
-      rows.forEach
+      rows.forEach(row => tbody.appendChild(row));
+    });
+  });
+}
+
+// Initialize Sorting
+setupTableSorting('inventoryTable', 'inventoryBody', 'data-sort-col');
+setupTableSorting('auditTable', 'auditBody', 'data-log-sort-col');
+
+export { notyf, renderTable, renderSalesTable, renderReports, renderAuditTable, renderLocations, switchSection, updateTheme, loadTheme, setupTableSorting };

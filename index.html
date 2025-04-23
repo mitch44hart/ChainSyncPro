@@ -1,616 +1,342 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
+ <!DOCTYPE html>
+ <html lang="en" class="dark">
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <meta name="theme-color" content="#1f2937"> <link rel="manifest" href="/manifest.json">
+     <title>ChainSync Lite - Inventory (Firebase)</title>
+     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+     <script src="https://cdn.tailwindcss.com"></script>
+     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+     <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+     <script type="module">
+       // Import the functions you need from the SDKs you need
+       // Example: Initialize Firebase
+       // import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+       // Example: Firestore
+       // import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+       // Example: Auth
+       // import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
+       // TODO: Add your Firebase project configuration here
+       // const firebaseConfig = {
+       //   apiKey: "YOUR_API_KEY",
+       //   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+       //   projectId: "YOUR_PROJECT_ID",
+       //   storageBucket: "YOUR_PROJECT_ID.appspot.com",
+       //   messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+       //   appId: "YOUR_APP_ID"
+       // };
 
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
+       // // Initialize Firebase (moved to firebaseConfig.js)
+       // const app = initializeApp(firebaseConfig);
+       // export const db = getFirestore(app); // Export Firestore instance
+       // export const auth = getAuth(app); // Export Auth instance
+     </script>
 
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!--
- * Changes made to improve button functionality:
- * 1. Added 'type="button"' to all buttons to prevent unintended form submissions.
- * 2. Ensured unique IDs for all buttons to avoid event listener conflicts.
- * 3. Improved library loading with async/defer attributes and enhanced fallbacks to ensure dependencies (e.g., Html5Qrcode, SheetJS) are available.
- * 4. Added 'aria-label' attributes to buttons for accessibility and better event handling.
- * 5. Simplified modal button handlers by using data attributes for modal IDs where applicable.
- * 6. Added a loading state class for buttons to provide visual feedback during async operations.
--->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#22c55e">
-    <link rel="manifest" href="manifest.json">
-    <title>ChainSync Lite - Easy Inventory for Shops</title>
-    <script src="https://cdn.tailwindcss.com" defer></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js" defer></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js" defer></script>
-    <script>
-        // Enhanced library fallbacks to ensure button dependencies load
-        window.addEventListener('load', () => {
-            if (!window.Html5Qrcode) {
-                console.warn('Html5Qrcode failed to load. Loading fallback...');
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
-                script.onerror = () => console.error('Failed to load Html5Qrcode fallback');
-                document.head.appendChild(script);
-            }
-            if (!window.XLSX) {
-                console.warn('SheetJS failed to load. Loading fallback...');
-                const script = document.createElement('script');
-                script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
-                script.onerror = () => console.error('Failed to load SheetJS fallback');
-                document.head.appendChild(script);
-            }
-            if (!window.jspdf) {
-                console.warn('jsPDF failed to load. Loading fallback...');
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-                script.onerror = () => console.error('Failed to load jsPDF fallback');
-                document.head.appendChild(script);
-            }
-            if (!window.Notyf) {
-                console.warn('Notyf not available. Loading fallback...');
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/notyf/3.10.0/notyf.min.js';
-                script.onerror = () => console.error('Failed to load Notyf fallback');
-                document.head.appendChild(script);
-            }
-        });
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { light: '#4ade80', DEFAULT: '#22c55e', dark: '#16a34a' },
-                        secondary: '#64748b',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { transition: background-color 0.3s, color 0.3s; }
-        .modal { z-index: 1001; }
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: #1f2937;
-            z-index: 1000;
-            padding: 0.5rem 0;
-            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-        }
-        .nav-link {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.25rem;
-            padding: 0.5rem;
-            color: #d1d5db;
-            transition: all 0.2s ease;
-            transform: scale(1);
-            flex: 1;
-            text-align: center;
-            cursor: pointer;
-        }
-        .nav-link:hover {
-            background-color: #374151;
-            transform: scale(1.05);
-        }
-        .nav-link.active {
-            background-color: #22c55e;
-            color: white;
-        }
-        .nav-link svg {
-            width: 1.5rem;
-            height: 1.5rem;
-        }
-        .nav-text {
-            font-size: 0.75rem;
-            line-height: 1rem;
-        }
-        @media (max-width: 640px) {
-            .nav-text { font-size: 0.65rem; }
-            .nav-link svg { width: 1.25rem; height: 1.25rem; }
-        }
-        #reader, #imageCapture { width: 100%; max-width: 400px; border: 1px solid #ccc; margin: 1rem auto; }
-        #reader__scan_region > img { display: none; }
-        #reader__scan_region::before, #imageCapture::before {
-            content: ''; position: absolute; top: 10%; left: 10%; right: 10%; bottom: 10%;
-            border: 3px solid rgba(34, 197, 94, 0.7); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
-            pointer-events: none; z-index: 1;
-        }
-        .notyf__toast { max-width: 400px; }
-        .notyf { z-index: 5000 !important; }
-        .section { display: none; }
-        .section.active { display: block; }
-        .tw-input {
-            @apply block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
-            bg-white dark:bg-gray-700 focus:outline-none focus:ring-primary-DEFAULT focus:border-primary-DEFAULT
-            sm:text-sm transition duration-150 ease-in-out;
-        }
-        .tw-label {
-            @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
-        }
-        .tw-button-primary {
-            @apply inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium
-            rounded-md text-white bg-primary-DEFAULT hover:bg-primary-dark focus:outline-none focus:ring-2
-            focus:ring-offset-2 focus:ring-primary-light disabled:opacity-50 disabled:cursor-not-allowed
-            transition duration-150 ease-in-out;
-        }
-        .tw-button-secondary {
-            @apply inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 shadow-sm
-            text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700
-            hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2
-            focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out;
-        }
-        .tw-button-danger {
-            @apply inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium
-            rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2
-            focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out;
-        }
-        .tw-checkbox {
-            @apply h-4 w-4 text-primary-DEFAULT border-gray-300 dark:border-gray-600 rounded
-            focus:ring-primary-light;
-        }
-        .item-image { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-        .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
-        .pagination button { @apply tw-button-secondary py-1 px-3 text-sm; }
-        .pagination button.active { @apply bg-primary-DEFAULT text-white; }
-        .fallback { text-align: center; color: #ff0000; margin: 20px; }
-        .filter-container { @apply grid grid-cols-1 md:grid-cols-3 gap-4 mb-6; }
-        .range-slider { @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer; }
-        .loading { opacity: 0.5; cursor: progress; }
-        @media (max-width: 768px) {
-            .item-image { width: 30px; height: 30px; }
-            .filter-container { @apply grid-cols-1; }
-        }
-    </style>
-</head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen">
-    <div class="main-content p-6 flex-1 pb-16">
-        <div class="container mx-auto bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-md transition-colors duration-300">
-            <!-- Inventory Section -->
-            <div class="section active" id="inventory-section">
-                <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Quick Inventory</h1>
-                <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="form-group">
-                        <label for="itemName" class="tw-label">Item Name or Barcode</label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="itemName" placeholder="Scan or type item name" class="tw-input flex-grow" required autofocus>
-                            <button type="button" onclick="startScanner()" class="tw-button-secondary p-2" id="scanButton" aria-label="Scan Barcode">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V6a2 2 0 012-2h2" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h2" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 8V6a2 2 0 00-2-2h-2" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 16v2a2 2 0 01-2 2h-2" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="quantity" class="tw-label">Quantity</label>
-                        <input type="number" id="quantity" placeholder="1" min="1" step="1" class="tw-input" required value="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="category" class="tw-label">Category</label>
-                        <select id="category" class="tw-input">
-                            <option value="">Select category</option>
-                            <option value="add-new">Add New Category...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="location" class="tw-label">Location</label>
-                        <select id="location" class="tw-input">
-                            <option value="">Select or add location</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="dotClassification" class="tw-label">DOT Classification</label>
-                        <select id="dotClassification" class="tw-input">
-                            <option value="">None</option>
-                            <option value="Flammable">Flammable</option>
-                            <option value="Gas">Gas</option>
-                            <option value="Corrosive">Corrosive</option>
-                            <option value="Explosive">Explosive</option>
-                            <option value="Toxic">Toxic</option>
-                            <option value="Oxidizer">Oxidizer</option>
-                            <option value="Radioactive">Radioactive</option>
-                            <option value="Miscellaneous">Miscellaneous</option>
-                            <option value="add-new">Add New Classification...</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-actions mb-6 flex gap-2">
-                    <button type="button" onclick="quickAddItem()" class="tw-button-primary" id="addItemButton" aria-label="Add Item">Add Item</button>
-                    <button type="button" onclick="clearForm()" class="tw-button-secondary" id="clearFormButton" aria-label="Clear Form">Clear</button>
-                    <button type="button" onclick="openBulkImportModal()" class="tw-button-secondary" id="bulkImportButton" aria-label="Open Bulk Import">Bulk Import</button>
-                </div>
-                <div class="filter-container">
-                    <div class="form-group">
-                        <label for="filterName" class="tw-label">Filter by Name</label>
-                        <input type="text" id="filterName" placeholder="Search by name..." class="tw-input">
-                    </div>
-                    <div class="form-group">
-                        <label for="filterCategory" class="tw-label">Filter by Category</label>
-                        <select id="filterCategory" class="tw-input">
-                            <option value="">All Categories</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="filterDot" class="tw-label">Filter by DOT Classification</label>
-                        <select id="filterDot" class="tw-input">
-                            <option value="">All Classifications</option>
-                            <option value="Flammable">Flammable</option>
-                            <option value="Gas">Gas</option>
-                            <option value="Corrosive">Corrosive</option>
-                            <option value="Explosive">Explosive</option>
-                            <option value="Toxic">Toxic</option>
-                            <option value="Oxidizer">Oxidizer</option>
-                            <option value="Radioactive">Radioactive</option>
-                            <option value="Miscellaneous">Miscellaneous</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="filterQuantity" class="tw-label">Quantity Range</label>
-                        <input type="range" id="filterQuantity" min="0" max="100" value="0" class="range-slider">
-                        <span id="quantityValue">0+</span>
-                    </div>
-                </div>
-                <div class="table-container overflow-x-auto">
-                    <table id="inventoryTable" class="min-w-full leading-normal">
-                        <thead>
-                            <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
-                                <th class="px-5 py-3">Item Name</th>
-                                <th class="px-5 py-3">Quantity</th>
-                                <th class="px-5 py-3">Category</th>
-                                <th class="px-5 py-3">Location</th>
-                                <th class="px-5 py-3">DOT Classification</th>
-                                <th class="px-5 py-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventoryBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                    </table>
-                </div>
-                <div class="pagination" id="pagination"></div>
-            </div>
 
-            <!-- Sales Section -->
-            <div class="section" id="sales-section">
-                <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Sales Tracking</h1>
-                <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="form-group">
-                        <label for="saleItemName" class="tw-label">Item Name</label>
-                        <input type="text" id="saleItemName" placeholder="Type item name" class="tw-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="saleQuantity" class="tw-label">Quantity Sold</label>
-                        <input type="number" id="saleQuantity" placeholder="1" min="1" step="1" class="tw-input" required value="1">
-                    </div>
-                </div>
-                <div class="form-actions mb-6 flex gap-2">
-                    <button type="button" onclick="recordSale()" class="tw-button-primary" id="recordSaleButton" aria-label="Record Sale">Record Sale</button>
-                    <button type="button" onclick="clearSaleForm()" class="tw-button-secondary" id="clearSaleFormButton" aria-label="Clear Sale Form">Clear</button>
-                </div>
-                <div class="table-container overflow-x-auto">
-                    <table id="salesTable" class="min-w-full leading-normal">
-                        <thead>
-                            <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
-                                <th class="px-5 py-3">Timestamp</th>
-                                <th class="px-5 py-3">Item Name</th>
-                                <th class="px-5 py-3">Quantity Sold</th>
-                            </tr>
-                        </thead>
-                        <tbody id="salesBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                    </table>
-                </div>
-            </div>
+     <script>
+         if (typeof tailwind !== 'undefined') {
+             tailwind.config = { /* ... */ } // Keep existing config
+         } else { console.error("Tailwind CSS script not loaded."); }
+     </script>
+     <style>
+         /* Styles remain largely the same, adjust as needed */
+         .chart-container { position: relative; height: 350px; width: 100%; }
+         .modal { z-index: 1001; }
+         input[type="file"] { display: none; }
+         td.item-name-cell { cursor: pointer; }
+         td.item-name-cell:hover { text-decoration: underline; }
+         #batchUpdateForm .checkbox-group label { margin-bottom: 0; }
+         @media (max-width: 600px) { .table-container { -webkit-overflow-scrolling: touch; } }
+         .filter-group button, .filter-group label { min-width: auto; }
+         .nav-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.5rem; color: #9ca3af; transition: all 0.2s ease; transform: scale(1); flex: 1; text-align: center; }
+         .nav-link:hover { background-color: #374151; transform: scale(1.05); }
+         .nav-link.active { background-color: #22c55e; color: white; }
+         .nav-link svg { width: 1.25rem; height: 1.25rem; }
+         .nav-text { font-size: 0.7rem; line-height: 1rem; }
+         #reader { width: 100%; max-width: 400px; border: 1px solid #4b5563; margin: 1rem auto; }
+         #reader__scan_region > img { display: none; }
+         #reader__scan_region::before { content: ''; position: absolute; top: 10%; left: 10%; right: 10%; bottom: 10%; border: 3px solid rgba(34, 197, 94, 0.7); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5); pointer-events: none; z-index: 1; }
+         .notyf__toast { max-width: 400px; }
+         .notyf { z-index: 5000 !important; }
+         .section { display: none; } /* Hide sections by default */
+         .section.active { display: block; } /* Show active section */
+         .tw-input { @apply block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-primary-DEFAULT focus:border-primary-DEFAULT sm:text-sm transition duration-150 ease-in-out; }
+         .tw-label { @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1; }
+         .tw-button-primary { @apply inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-DEFAULT hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-primary-light disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out; }
+         .tw-button-secondary { @apply inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out; }
+         .tw-button-danger { @apply inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out; }
+         .tw-checkbox { @apply h-4 w-4 text-primary-DEFAULT border-gray-300 dark:border-gray-600 rounded focus:ring-primary-light; }
+         .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+         .pagination button { @apply tw-button-secondary py-1 px-3 text-sm; }
+         .pagination button.active { @apply bg-primary-DEFAULT text-white border-primary-DEFAULT; }
+         #auth-container { display: none; /* Hidden until auth state known */ }
+         #app-content { display: none; /* Hidden until logged in */ }
+         #login-prompt { display: block; /* Shown initially */ }
+         @media (max-width: 640px) { .nav-text { font-size: 0.65rem; } .nav-link svg { width: 1.25rem; height: 1.25rem; } }
+     </style>
+     <script type="module" src="/app.js"></script>
+ </head>
+ <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen">
 
-            <!-- Reports Section -->
-            <div class="section" id="reports-section">
-                <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Reports</h1>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div class="p-4 bg-white dark:bg-gray-800 rounded shadow">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Items</p>
-                        <span id="totalItems" class="text-2xl font-bold">0</span>
-                    </div>
-                    <div class="p-4 bg-white dark:bg-gray-800 rounded shadow">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Stock</p>
-                        <span id="totalStock" class="text-2xl font-bold">0</span>
-                    </div>
-                    <div class="p-4 bg-white dark:bg-gray-800 rounded shadow">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Inventory Value</p>
-                        <span id="inventoryValue" class="text-2xl font-bold">$0</span>
-                    </div>
-                </div>
-                <div class="mb-6">
-                    <h2 class="text-xl font-medium mb-3">Inventory Summary</h2>
-                    <div class="table-container overflow-x-auto">
-                        <table id="reportsTable" class="min-w-full leading-normal">
-                            <thead>
-                                <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
-                                    <th class="px-5 py-3">Category</th>
-                                    <th class="px-5 py-3">Total Items</th>
-                                    <th class="px-5 py-3">Total Quantity</th>
-                                    <th class="px-5 py-3">DOT Classifications</th>
-                                </tr>
-                            </thead>
-                            <tbody id="reportsBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="space-y-4">
-                    <button type="button" onclick="exportToExcel()" class="tw-button-secondary" id="exportExcelButton" aria-label="Export to Excel">Export to Excel</button>
-                    <button type="button" onclick="exportToPDF()" class="tw-button-secondary" id="exportPdfButton" aria-label="Export to PDF">Export to PDF</button>
-                </div>
-            </div>
+    <div id="auth-container" class="p-4 text-right bg-gray-200 dark:bg-gray-700 shadow-sm">
+        <span id="user-email" class="text-sm mr-4"></span>
+        <button id="logout-button" class="tw-button-secondary text-xs py-1 px-2">Logout</button>
+    </div>
 
-            <!-- Audit Log Section -->
-            <div class="section" id="audit-section">
-                <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Audit Log</h1>
-                <div class="table-container overflow-x-auto">
-                    <table id="auditTable" class="min-w-full leading-normal">
-                        <thead>
-                            <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
-                                <th class="px-5 py-3">Timestamp</th>
-                                <th class="px-5 py-3">Action</th>
-                                <th class="px-5 py-3">Item Name</th>
-                                <th class="px-5 py-3">Details</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                    </table>
+    <div id="login-prompt" class="flex flex-col items-center justify-center flex-grow p-6">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md text-center">
+            <h1 class="text-2xl font-semibold mb-6">Welcome to ChainSync Lite</h1>
+            <p class="mb-6 text-gray-600 dark:text-gray-400">Please log in to manage your inventory.</p>
+            <div id="login-form-container">
+                <input type="email" id="login-email" placeholder="Email" class="tw-input mb-2">
+                <input type="password" id="login-password" placeholder="Password" class="tw-input mb-4">
+                <button id="login-button" class="tw-button-primary w-full mb-2">Login</button>
+                <button id="signup-button" class="tw-button-secondary w-full">Sign Up</button>
                 </div>
-            </div>
-
-            <!-- Settings Section -->
-            <div class="section" id="settings-section">
-                <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Settings</h1>
-                <div class="space-y-6">
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Shop Details</h2>
-                        <div class="form-group">
-                            <label for="shopName" class="tw-label">Shop Name</label>
-                            <input type="text" id="shopName" class="tw-input" placeholder="Enter your shop name">
-                        </div>
-                        <div class="form-group">
-                            <label for="locations" class="tw-label">Shop Locations</label>
-                            <input type="text" id="locations" class="tw-input" placeholder="e.g., Main Store, Warehouse">
-                            <button type="button" onclick="addLocation()" class="tw-button-primary mt-2" id="addLocationButton" aria-label="Add Location">Add Location</button>
-                        </div>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Category Presets</h2>
-                        <div class="form-group">
-                            <label for="categoryPreset" class="tw-label">Add Category</label>
-                            <input type="text" id="categoryPreset" class="tw-input" placeholder="e.g., Electronics">
-                            <button type="button" onclick="addCategoryPreset()" class="tw-button-primary mt-2" id="addCategoryButton" aria-label="Add Category">Add Category</button>
-                        </div>
-                        <div id="categoryList" class="mt-4"></div>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Custom DOT Classifications</h2>
-                        <div class="form-group">
-                            <label for="dotPreset" class="tw-label">Add Custom Classification</label>
-                            <input type="text" id="dotPreset" class="tw-input" placeholder="e.g., Biohazard">
-                            <button type="button" onclick="addDotPreset()" class="tw-button-primary mt-2" id="addDotButton" aria-label="Add DOT Classification">Add Classification</button>
-                        </div>
-                        <div id="dotList" class="mt-4"></div>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Theme</h2>
-                        <div class="form-group flex items-center">
-                            <input type="checkbox" id="darkTheme" onchange="toggleTheme()" class="tw-checkbox">
-                            <label for="darkTheme" class="ml-2">Dark Mode</label>
-                        </div>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Debugging</h2>
-                        <div class="form-group flex items-center">
-                            <input type="checkbox" id="debugMode" onchange="toggleDebugMode()" class="tw-checkbox">
-                            <label for="debugMode" class="ml-2">Enable Debug Logs</label>
-                        </div>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-medium mb-3">Data Management</h2>
-                        <div class="flex gap-2">
-                            <button type="button" onclick="backupData()" class="tw-button-secondary" id="backupButton" aria-label="Backup Data">Backup Data</button>
-                            <button type="button" onclick="clearDatabase()" class="tw-button-danger" id="resetButton" aria-label="Reset All Data">Reset All Data</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <p id="auth-error" class="text-red-500 text-sm mt-4"></p>
         </div>
     </div>
 
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav flex justify-around">
-        <a id="nav-inventory" href="#inventory" class="nav-link active" aria-label="Inventory">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7m16 0l-8 4m-8-4l8 4m0 0v6" />
-            </svg>
-            <span class="nav-text">Inventory</span>
-        </a>
-        <a id="nav-sales" href="#sales" class="nav-link" aria-label="Sales">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18H3zM9 3v18m6-18v18" />
-            </svg>
-            <span class="nav-text">Sales</span>
-        </a>
-        <a id="nav-reports" href="#reports" class="nav-link" aria-label="Reports">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6h3v6m3-6v4h3v2h-3v2m-6-8V7h3v4m-9 6h18" />
-            </svg>
-            <span class="nav-text">Reports</span>
-        </a>
-        <a id="nav-audit" href="#audit" class="nav-link" aria-label="Audit Log">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h4a2 2 0 012 2v12a2 2 0 01-2 2z" />
-            </svg>
-            <span class="nav-text">Audit Log</span>
-        </a>
-        <a id="nav-settings" href="#settings" class="nav-link" aria-label="Settings">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
-            </svg>
-            <span class="nav-text">Settings</span>
-        </a>
-    </nav>
+    <div id="app-content" class="main-content p-6 flex-1 pb-20" style="display: none;">
+         <div class="container mx-auto max-w-7xl bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-md transition-colors duration-300">
+             <div class="section active" id="inventory-section">
+                 <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Quick Inventory</h1>
+                 <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                     <div class="form-group">
+                         <label for="itemName" class="tw-label">Item Name or Barcode</label>
+                         <div class="flex items-center gap-2">
+                             <input type="text" id="itemName" placeholder="Scan or type item name" class="tw-input flex-grow" required autofocus>
+                             <button id="start-scan-btn" class="tw-button-secondary p-2" title="Scan Barcode">
+                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"> <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /> <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V6a2 2 0 012-2h2" /> <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h2" /> <path stroke-linecap="round" stroke-linejoin="round" d="M20 8V6a2 2 0 00-2-2h-2" /> <path stroke-linecap="round" stroke-linejoin="round" d="M20 16v2a2 2 0 01-2 2h-2" /> </svg>
+                             </button>
+                         </div>
+                     </div>
+                     <div class="form-group">
+                         <label for="quantity" class="tw-label">Quantity</label>
+                         <input type="number" id="quantity" placeholder="1" min="1" step="1" class="tw-input" required value="1">
+                     </div>
+                     <div class="form-group">
+                         <label for="category" class="tw-label">Category (Optional)</label>
+                         <input type="text" id="category" placeholder="e.g., Food, Clothing" class="tw-input">
+                     </div>
+                     <div class="form-group">
+                         <label for="location" class="tw-label">Location (Optional)</label>
+                         <select id="location" class="tw-input">
+                             <option value="">Select or add location</option>
+                         </select>
+                     </div>
+                 </div>
+                 <div class="form-actions mb-6 flex gap-2">
+                     <button id="quick-add-item-btn" class="tw-button-primary">Add Item</button>
+                     <button id="clear-form-btn" class="tw-button-secondary">Clear</button>
+                 </div>
+                 <div class="filter-group mb-6 flex gap-4">
+                     <input type="text" id="searchInput" placeholder="Search items..." class="tw-input w-full md:w-1/3">
+                 </div>
+                 <div class="table-container overflow-x-auto">
+                     <table id="inventoryTable" class="min-w-full leading-normal">
+                         <thead>
+                             <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
+                                 <th class="px-5 py-3">Item Name</th>
+                                 <th class="px-5 py-3">Quantity</th>
+                                 <th class="px-5 py-3">Category</th>
+                                 <th class="px-5 py-3">Location</th>
+                                 <th class="px-5 py-3">Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody id="inventoryBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr><td colspan="5" class="text-center p-5 text-gray-500">Loading inventory...</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
+                 <div class="pagination" id="pagination"></div>
+             </div>
 
-    <!-- Scan Modal -->
-    <div id="scanModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
-        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
-                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Scan Barcode</h2>
-                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="stopScanner()" aria-label="Close Scan Modal">×</span>
-            </div>
-            <div class="modal-body mt-4 text-center">
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Place barcode within the frame.</p>
-                <div id="reader"></div>
-                <button type="button" onclick="stopScanner()" class="tw-button-secondary mt-4" id="cancelScanButton" aria-label="Cancel Barcode Scan">Cancel Scan</button>
-            </div>
-        </div>
-    </div>
+             <div class="section" id="sales-section">
+                 <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Sales Tracking</h1>
+                 <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                     <div class="form-group">
+                         <label for="saleItemName" class="tw-label">Item Name</label>
+                         <input type="text" id="saleItemName" placeholder="Type item name" class="tw-input" required>
+                     </div>
+                     <div class="form-group">
+                         <label for="saleQuantity" class="tw-label">Quantity Sold</label>
+                         <input type="number" id="saleQuantity" placeholder="1" min="1" step="1" class="tw-input" required value="1">
+                     </div>
+                 </div>
+                 <div class="form-actions mb-6 flex gap-2">
+                     <button id="record-sale-btn" class="tw-button-primary">Record Sale</button>
+                     <button id="clear-sale-form-btn" class="tw-button-secondary">Clear</button>
+                 </div>
+                 <h2 class="text-xl font-medium mb-3">Recent Sales</h2>
+                 <div class="table-container overflow-x-auto">
+                     <table id="salesTable" class="min-w-full leading-normal">
+                         <thead>
+                             <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
+                                 <th class="px-5 py-3">Timestamp</th>
+                                 <th class="px-5 py-3">Item Name</th>
+                                 <th class="px-5 py-3">Quantity Sold</th>
+                             </tr>
+                         </thead>
+                         <tbody id="salesBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr><td colspan="3" class="text-center p-5 text-gray-500">Loading sales...</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
 
-    <!-- Edit Item Modal -->
-    <div id="editModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
-        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
-                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Edit Item</h2>
-                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('editModal')" aria-label="Close Edit Modal">×</span>
-            </div>
-            <div class="modal-body mt-4">
-                <div class="form-group mb-4">
-                    <label for="editItemName" class="tw-label">Item Name</label>
-                    <input type="text" id="editItemName" class="tw-input" required>
-                </div>
-                <div class="form-group mb-4">
-                    <label for="editQuantity" class="tw-label">Quantity</label>
-                    <input type="number" id="editQuantity" min="1" step="1" class="tw-input" required>
-                </div>
-                <div class="form-group mb-4">
-                    <label for="editCategory" class="tw-label">Category</label>
-                    <select id="editCategory" class="tw-input">
-                        <option value="">Select category</option>
-                        <option value="add-new">Add New Category...</option>
-                    </select>
-                </div>
-                <div class="form-group mb-4">
-                    <label for="editLocation" class="tw-label">Location</label>
-                    <select id="editLocation" class="tw-input">
-                        <option value="">Select or add location</option>
-                    </select>
-                </div>
-                <div class="form-group mb-4">
-                    <label for="editDotClassification" class="tw-label">DOT Classification</label>
-                    <select id="editDotClassification" class="tw-input">
-                        <option value="">None</option>
-                        <option value="Flammable">Flammable</option>
-                        <option value="Gas">Gas</option>
-                        <option value="Corrosive">Corrosive</option>
-                        <option value="Explosive">Explosive</option>
-                        <option value="Toxic">Toxic</option>
-                        <option value="Oxidizer">Oxidizer</option>
-                        <option value="Radioactive">Radioactive</option>
-                        <option value="Miscellaneous">Miscellaneous</option>
-                        <option value="add-new">Add New Classification...</option>
-                    </select>
-                </div>
-                <div class="flex gap-2">
-                    <button type="button" onclick="saveEditedItem()" class="tw-button-primary" id="saveEditButton" aria-label="Save Edited Item">Save</button>
-                    <button type="button" onclick="closeModal('editModal')" class="tw-button-secondary" id="cancelEditButton" aria-label="Cancel Edit">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
+             <div class="section" id="reports-section">
+                 <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Reports</h1>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div class="p-4 bg-white dark:bg-gray-700 rounded shadow">
+                         <p class="text-sm text-gray-500 dark:text-gray-400">Total Unique Items</p>
+                         <span id="reportTotalItems" class="text-2xl font-bold">0</span>
+                     </div>
+                     <div class="p-4 bg-white dark:bg-gray-700 rounded shadow">
+                         <p class="text-sm text-gray-500 dark:text-gray-400">Total Stock Quantity</p>
+                         <span id="reportTotalStock" class="text-2xl font-bold">0</span>
+                     </div>
+                     <div class="p-4 bg-white dark:bg-gray-700 rounded shadow">
+                         <p class="text-sm text-gray-500 dark:text-gray-400">Estimated Inventory Value</p>
+                         <span id="reportInventoryValue" class="text-2xl font-bold">$0.00</span>
+                         <p class="text-xs text-gray-400 dark:text-gray-500">(Requires 'Price' field)</p>
+                     </div>
+                 </div>
+                 <div class="mb-6">
+                     <h2 class="text-xl font-medium mb-3">Inventory Summary by Category</h2>
+                     <div class="table-container overflow-x-auto">
+                         <table id="reportsTable" class="min-w-full leading-normal">
+                             <thead>
+                                 <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
+                                     <th class="px-5 py-3">Category</th>
+                                     <th class="px-5 py-3">Total Items</th>
+                                     <th class="px-5 py-3">Total Quantity</th>
+                                 </tr>
+                             </thead>
+                             <tbody id="reportsBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr><td colspan="3" class="text-center p-5 text-gray-500">Loading report...</td></tr>
+                             </tbody>
+                         </table>
+                     </div>
+                 </div>
+                 <div class="space-y-4 md:space-y-0 md:flex md:gap-2">
+                     <button id="report-export-excel-btn" class="tw-button-secondary w-full md:w-auto">Export Inventory (Excel)</button>
+                     <button id="report-export-pdf-btn" class="tw-button-secondary w-full md:w-auto">Export Inventory (PDF)</button>
+                 </div>
+             </div>
 
-    <!-- Bulk Import Modal -->
-    <div id="bulkImportModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
-        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
-                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Bulk Import</h2>
-                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('bulkImportModal')" aria-label="Close Bulk Import Modal">×</span>
-            </div>
-            <div class="modal-body mt-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Upload a CSV file with columns: Item Name, Quantity, Category, Location, DOT Classification.</p>
-                <input type="file" id="bulkImportFile" accept=".csv" class="tw-input mb-4">
-                <div class="flex gap-2">
-                    <button type="button" onclick="importBulkItems()" class="tw-button-primary" id="importButton" aria-label="Import CSV">Import</button>
-                    <button type="button" onclick="closeModal('bulkImportModal')" class="tw-button-secondary" id="cancelImportButton" aria-label="Cancel Bulk Import">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
+             <div class="section" id="audit-section">
+                 <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Audit Log</h1>
+                 <div class="table-container overflow-x-auto">
+                     <table id="auditTable" class="min-w-full leading-normal">
+                         <thead>
+                             <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-600 dark:text-gray-300 uppercase text-sm">
+                                 <th class="px-5 py-3">Timestamp</th>
+                                 <th class="px-5 py-3">Action</th>
+                                 <th class="px-5 py-3">Item Name</th>
+                                 <th class="px-5 py-3">Details</th>
+                             </tr>
+                         </thead>
+                         <tbody id="auditBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr><td colspan="4" class="text-center p-5 text-gray-500">Loading audit log...</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
 
-    <!-- Shortcut Help Modal -->
-    <div id="shortcutModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
-        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
-                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Keyboard Shortcuts</h2>
-                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('shortcutModal')" aria-label="Close Shortcut Modal">×</span>
-            </div>
-            <div class="modal-body mt-4">
-                <ul class="text-sm text-gray-600 dark:text-gray-400">
-                    <li><strong>Ctrl+1</strong>: Inventory Section</li>
-                    <li><strong>Ctrl+2</strong>: Sales Section</li>
-                    <li><strong>Ctrl+3</strong>: Reports Section</li>
-                    <li><strong>Ctrl+4</strong>: Audit Log Section</li>
-                    <li><strong>Ctrl+5</strong>: Settings Section</li>
-                    <li><strong>Ctrl+S</strong>: Open Barcode Scanner</li>
-                    <li><strong>Ctrl+Enter</strong>: Add Item</li>
-                    <li><strong>Ctrl+E</strong>: Edit Selected Item</li>
-                    <li><strong>Ctrl+B</strong>: Open Bulk Import</li>
-                    <li><strong>Ctrl+/</strong>: Show This Help</li>
-                </ul>
-                <button type="button" onclick="closeModal('shortcutModal')" class="tw-button-secondary mt-4" id="closeShortcutButton" aria-label="Close Shortcut Help">Close</button>
-            </div>
-        </div>
-    </div>
+             <div class="section" id="settings-section">
+                 <h1 class="text-2xl font-semibold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Settings</h1>
+                 <div class="space-y-6">
+                     <div>
+                         <h2 class="text-xl font-medium mb-3">Shop Details</h2>
+                         <div class="form-group mb-4">
+                             <label for="shopName" class="tw-label">Shop Name</label>
+                             <input type="text" id="shopName" class="tw-input" placeholder="Enter your shop name">
+                         </div>
+                         <div class="form-group">
+                             <label for="newLocation" class="tw-label">Shop Locations</label>
+                             <div class="flex gap-2 mb-2">
+                                 <input type="text" id="newLocation" class="tw-input flex-grow" placeholder="e.g., Main Store, Warehouse A">
+                                 <button id="add-location-btn" class="tw-button-primary whitespace-nowrap">Add Location</button>
+                             </div>
+                             <ul id="locationList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+                                 <li>Loading locations...</li>
+                             </ul>
+                         </div>
+                         <button id="save-shop-details-btn" class="tw-button-primary mt-4">Save Shop Details</button>
+                     </div>
+                     <hr class="dark:border-gray-700">
+                     <div>
+                         <h2 class="text-xl font-medium mb-3">Theme</h2>
+                         <div class="form-group flex items-center">
+                             <input type="checkbox" id="darkTheme" class="tw-checkbox">
+                             <label for="darkTheme" class="ml-2">Dark Mode</label>
+                         </div>
+                     </div>
+                     <hr class="dark:border-gray-700">
+                     <div>
+                         <h2 class="text-xl font-medium mb-3">Debugging</h2>
+                         <div class="form-group flex items-center">
+                             <input type="checkbox" id="debugMode" class="tw-checkbox">
+                             <label for="debugMode" class="ml-2">Enable Console Debug Logs</label>
+                         </div>
+                     </div>
+                     <hr class="dark:border-gray-700">
+                     <div>
+                         <h2 class="text-xl font-medium mb-3">Data Management</h2>
+                         <div class="flex flex-wrap gap-2">
+                             <button id="backup-data-btn" class="tw-button-secondary">Backup Data (JSON)</button>
+                             <button id="settings-clear-db-btn" class="tw-button-danger">Reset All Data</button>
+                             <button id="settings-clear-log-btn" class="tw-button-warning">Clear Audit Log</button>
+                         </div>
+                     </div>
+                 </div>
+             </div>
 
-    <script src="db.js"></script>
-    <script src="ui.js"></script>
-    <script src="inventory.js"></script>
-</body>
-</html>
+         </div>
+     </div>
+
+     <nav class="bottom-nav fixed bottom-0 left-0 right-0 bg-gray-800 flex justify-around">
+         <a id="nav-inventory" href="#inventory" class="nav-link active" aria-label="Inventory">
+             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+             <span class="nav-text">Inventory</span>
+         </a>
+         <a id="nav-sales" href="#sales" class="nav-link" aria-label="Sales">
+             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+             <span class="nav-text">Sales</span>
+         </a>
+         <a id="nav-reports" href="#reports" class="nav-link" aria-label="Reports">
+             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6h3v6m3-6v4h3v2h-3v2m-6-8V7h3v4m-9 6h18" /></svg>
+             <span class="nav-text">Reports</span>
+         </a>
+         <a id="nav-audit" href="#audit" class="nav-link" aria-label="Audit Log">
+             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h4a2 2 0 012 2v12a2 2 0 01-2 2z" /></svg>
+             <span class="nav-text">Audit Log</span>
+         </a>
+         <a id="nav-settings" href="#settings" class="nav-link" aria-label="Settings">
+             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+             <span class="nav-text">Settings</span>
+         </a>
+     </nav>
+
+     <div id="scanModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
+         <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+             <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
+                 <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Scan Barcode</h2>
+                 <span id="scan-modal-close-btn" class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" data-close-modal="scanModal">&times;</span>
+             </div>
+             <div class="modal-body mt-4 text-center">
+                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Place barcode within the frame.</p>
+                 <div id="reader"></div>
+                 <button id="cancel-scan-btn" class="tw-button-secondary mt-4">Cancel Scan</button>
+             </div>
+         </div>
+     </div>
+     </body>
+ </html>

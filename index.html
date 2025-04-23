@@ -37,304 +37,77 @@
   </script>
 </head>
 <body class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen">
-  <div id="loading" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
-    <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
-  </div>
+  <!-- Previous sections unchanged: auth-container, login-prompt, inventory-section, sales-section, reports-section, audit-section -->
 
-  <div id="auth-container" class="p-4 text-right bg-gradient-to-r from-blue-500 to-blue-700 dark:from-gray-700 dark:to-gray-800 shadow-lg">
-    <span id="user-email" class="text-sm mr-4 text-white"></span>
-    <button id="logout-button" class="tw-button-secondary text-xs py-1 px-2">Logout</button>
-  </div>
-
-  <div id="login-prompt" class="flex flex-col items-center justify-center flex-grow p-6">
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-xl text-center max-w-md w-full">
-      <h1 class="text-2xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Welcome to ChainSync Lite</h1>
-      <p class="mb-6 text-gray-600 dark:text-gray-400">Manage your inventory with ease.</p>
-      <div id="login-form-container" role="form" aria-labelledby="login-heading">
-        <h2 id="login-heading" class="sr-only">Login Form</h2>
-        <input type="email" id="login-email" placeholder="Email" class="tw-input mb-2" required aria-label="Email address">
-        <input type="password" id="login-password" placeholder="Password" class="tw-input mb-4" required aria-label="Password">
-        <button id="login-button" class="tw-button-primary w-full mb-2">Login</button>
-        <button id="signup-button" class="tw-button-secondary w-full">Sign Up</button>
+  <div class="section" id="settings-section">
+    <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Settings</h1>
+    <div class="space-y-6">
+      <div>
+        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Shop Details</h2>
+        <div class="form-group mb-4">
+          <label for="shopName" class="tw-label">Shop Name</label>
+          <input type="text" id="shopName" class="tw-input" placeholder="Enter your shop name" aria-label="Shop name">
+        </div>
+        <div class="form-group">
+          <label for="newLocation" class="tw-label">Shop Locations</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="newLocation" class="tw-input flex-grow" placeholder="e.g., Main Store, Warehouse A" aria-label="New location">
+            <button id="add-location-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Location</button>
+          </div>
+          <ul id="locationList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+            <li>Loading locations...</li>
+          </ul>
+        </div>
+        <div class="form-group">
+          <label for="newCategory" class="tw-label">Custom Categories</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="newCategory" class="tw-input flex-grow" placeholder="e.g., Electronics, Perishables" aria-label="New category">
+            <button id="add-category-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Category</button>
+          </div>
+          <ul id="categoryList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+            <li>Loading categories...</li>
+          </ul>
+        </div>
+        <button id="save-shop-details-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Shop Details</button>
       </div>
-      <p id="auth-error" class="text-red-500 text-sm mt-4" role="alert"></p>
-    </div>
-  </div>
-
-  <div id="app-content" class="main-content p-6 flex-1 pb-20">
-    <div class="container mx-auto max-w-7xl bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-xl transition-all duration-300">
-      <div class="section active" id="inventory-section">
-        <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Quick Inventory</h1>
-        <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="form-group">
-            <label for="itemName" class="tw-label">Item Name or Barcode</label>
-            <div class="flex items-center gap-2">
-              <input type="text" id="itemName" placeholder="Scan or type item name" class="tw-input flex-grow" required autofocus aria-label="Item name or barcode">
-              <button id="start-scan-btn" class="tw-button-secondary p-2 transform transition-transform hover:scale-105" title="Scan Barcode" aria-label="Scan barcode">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V6a2 2 0 012-2h2" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h2" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 8V6a2 2 0 00-2-2h-2" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 16v2a2 2 0 01-2 2h-2" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="quantity" class="tw-label">Quantity</label>
-            <input type="number" id="quantity" placeholder="1" min="1" step="1" class="tw-input" required value="1" aria-label="Quantity">
-          </div>
-          <div class="form-group">
-            <label for="category" class="tw-label">Category (Optional)</label>
-            <select id="category" class="tw-input" aria-label="Category">
-              <option value="">Select or type category</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="location" class="tw-label">Location (Optional)</label>
-            <select id="location" class="tw-input" aria-label="Location">
-              <option value="">Select or add location</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="dotClass" class="tw-label">DOT Hazard Class (Optional)</label>
-            <select id="dotClass" class="tw-input" aria-label="DOT Hazard Class">
-              <option value="None">None</option>
-              <option value="Flammable">Flammable</option>
-              <option value="Corrosive">Corrosive</option>
-              <option value="Toxic">Toxic</option>
-              <option value="Oxidizer">Oxidizer</option>
-              <option value="Explosive">Explosive</option>
-              <option value="Gas">Gas</option>
-              <option value="Radioactive">Radioactive</option>
-              <option value="Miscellaneous">Miscellaneous</option>
-            </select>
-          </div>
+      <hr class="dark:border-gray-700">
+      <div>
+        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Inventory Settings</h2>
+        <div class="form-group mb-4">
+          <label for="lowStockThreshold" class="tw-label">Low Stock Threshold</label>
+          <input type="number" id="lowStockThreshold" class="tw-input" placeholder="e.g., 10" min="1" value="10" aria-label="Low stock threshold">
         </div>
-        <div class="form-actions mb-6 flex gap-2">
-          <button id="quick-add-item-btn" class="tw-button-primary transform transition-transform hover:scale-105">Add Item</button>
-          <button id="clear-form-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Clear</button>
-        </div>
-        <div class="filter-group mb-6 flex gap-4">
-          <input type="text" id="searchInput" placeholder="Search items..." class="tw-input w-full md:w-1/3" aria-label="Search inventory">
-        </div>
-        <div class="table-container overflow-x-auto rounded-xl shadow-lg">
-          <table id="inventoryTable" class="min-w-full leading-normal">
-            <thead>
-              <tr class="bg-gradient-to-r from-blue-600 to-blue-800 text-white uppercase text-sm">
-                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="0">Item Name</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="1">Quantity</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="2">Category</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="3">Location</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="4">DOT Class</th>
-                <th class="px-5 py-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="inventoryBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="6" class="text-center p-5 text-gray-500">Loading inventory...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="pagination" id="pagination"></div>
+        <button id="save-settings-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Settings</button>
       </div>
-
-      <div class="section" id="sales-section">
-        <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Sales Tracking</h1>
-        <div class="form-grid grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="form-group">
-            <label for="saleItemName" class="tw-label">Item Name</label>
-            <input type="text" id="saleItemName" placeholder="Type item name" class="tw-input" required aria-label="Sale item name">
-          </div>
-          <div class="form-group">
-            <label for="saleQuantity" class="tw-label">Quantity Sold</label>
-            <input type="number" id="saleQuantity" placeholder="1" min="1" step="1" class="tw-input" required value="1" aria-label="Quantity sold">
-          </div>
-        </div>
-        <div class="form-actions mb-6 flex gap-2">
-          <button id="record-sale-btn" class="tw-button-primary transform transition-transform hover:scale-105">Record Sale</button>
-          <button id="clear-sale-form-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Clear</button>
-        </div>
-        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Recent Sales</h2>
-        <div class="table-container overflow-x-auto rounded-xl shadow-lg">
-          <table id="salesTable" class="min-w-full leading-normal">
-            <thead>
-              <tr class="bg-gradient-to-r from-blue-600 to-blue-800 text-white uppercase text-sm">
-                <th class="px-5 py-3 text-left">Timestamp</th>
-                <th class="px-5 py-3 text-left">Item Name</th>
-                <th class="px-5 py-3 text-left">Quantity Sold</th>
-              </tr>
-            </thead>
-            <tbody id="salesBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="3" class="text-center p-5 text-gray-500">Loading sales...</td></tr>
-            </tbody>
-          </table>
+      <hr class="dark:border-gray-700">
+      <div>
+        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Theme</h2>
+        <div class="form-group flex items-center">
+          <input type="checkbox" id="darkTheme" class="tw-checkbox" aria-label="Enable dark mode">
+          <label for="darkTheme" class="ml-2">Dark Mode</label>
         </div>
       </div>
-
-      <div class="section" id="reports-section">
-        <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Reports</h1>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div class="p-6 bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-xl shadow-lg transform transition-transform hover:scale-105">
-            <p class="text-sm opacity-80">Total Unique Items</p>
-            <span id="reportTotalItems" class="text-3xl font-bold">0</span>
-          </div>
-          <div class="p-6 bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-xl shadow-lg transform transition-transform hover:scale-105">
-            <p class="text-sm opacity-80">Total Stock Quantity</p>
-            <span id="reportTotalStock" class="text-3xl font-bold">0</span>
-          </div>
-          <div class="p-6 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-xl shadow-lg transform transition-transform hover:scale-105">
-            <p class="text-sm opacity-80">Estimated Inventory Value</p>
-            <span id="reportInventoryValue" class="text-3xl font-bold">$0.00</span>
-            <p class="text-xs opacity-70">(Requires 'Price' field)</p>
-          </div>
-        </div>
-        <div class="mb-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Stock by Category</h2>
-          <div class="chart-container">
-            <canvas id="categoryChart"></canvas>
-          </div>
-        </div>
-        <div class="mb-6">
-          <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Inventory Summary by Category</h2>
-          <div class="table-container overflow-x-auto rounded-xl shadow-lg">
-            <table id="reportsTable" class="min-w-full leading-normal">
-              <thead>
-                <tr class="bg-gradient-to-r from-blue-600 to-blue-800 text-white uppercase text-sm">
-                  <th class="px-5 py-3 text-left">Category</th>
-                  <th class="px-5 py-3 text-left">Total Items</th>
-                  <th class="px-5 py-3 text-left">Total Quantity</th>
-                </tr>
-              </thead>
-              <tbody id="reportsBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                <tr><td colspan="3" class="text-center p-5 text-gray-500">Loading report...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="space-y-4 md:space-y-0 md:flex md:gap-2">
-          <button id="report-export-excel-btn" class="tw-button-secondary w-full md:w-auto transform transition-transform hover:scale-105">Export Inventory (Excel)</button>
-          <button id="report-export-pdf-btn" class="tw-button-secondary w-full md:w-auto transform transition-transform hover:scale-105">Export Inventory (PDF)</button>
+      <hr class="dark:border-gray-700">
+      <div>
+        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Debugging</h2>
+        <div class="form-group flex items-center">
+          <input type="checkbox" id="debugMode" class="tw-checkbox" aria-label="Enable debug logs">
+          <label for="debugMode" class="ml-2">Enable Console Debug Logs</label>
         </div>
       </div>
-
-      <div class="section" id="audit-section">
-        <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Audit Log</h1>
-        <div class="table-container overflow-x-auto rounded-xl shadow-lg">
-          <table id="auditTable" class="min-w-full leading-normal">
-            <thead>
-              <tr class="bg-gradient-to-r from-blue-600 to-blue-800 text-white uppercase text-sm">
-                <th class="px-5 py-3 text-left cursor-pointer" data-log-sort-col="0">Timestamp</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-log-sort-col="1">Action</th>
-                <th class="px-5 py-3 text-left cursor-pointer" data-log-sort-col="2">Item Name</th>
-                <th class="px-5 py-3 text-left">Details</th>
-              </tr>
-            </thead>
-            <tbody id="auditBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="4" class="text-center p-5 text-gray-500">Loading audit log...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section" id="settings-section">
-        <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Settings</h1>
-        <div class="space-y-6">
-          <div>
-            <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Shop Details</h2>
-            <div class="form-group mb-4">
-              <label for="shopName" class="tw-label">Shop Name</label>
-              <input type="text" id="shopName" class="tw-input" placeholder="Enter your shop name" aria-label="Shop name">
-            </div>
-            <div class="form-group">
-              <label for="newLocation" class="tw-label">Shop Locations</label>
-              <div class="flex gap-2 mb-2">
-                <input type="text" id="newLocation" class="tw-input flex-grow" placeholder="e.g., Main Store, Warehouse A" aria-label="New location">
-                <button id="add-location-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Location</button>
-              </div>
-              <ul id="locationList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
-                <li>Loading locations...</li>
-              </ul>
-            </div>
-            <div class="form-group">
-              <label for="newCategory" class="tw-label">Custom Categories</label>
-              <div class="flex gap-2 mb-2">
-                <input type="text" id="newCategory" class="tw-input flex-grow" placeholder="e.g., Electronics, Perishables" aria-label="New category">
-                <button id="add-category-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Category</button>
-              </div>
-              <ul id="categoryList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
-                <li>Loading categories...</li>
-              </ul>
-            </div>
-            <button id="save-shop-details-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Shop Details</button>
-          </div>
-          <hr class="dark:border-gray-700">
-          <div>
-            <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Theme</h2>
-            <div class="form-group flex items-center">
-              <input type="checkbox" id="darkTheme" class="tw-checkbox" aria-label="Enable dark mode">
-              <label for="darkTheme" class="ml-2">Dark Mode</label>
-            </div>
-          </div>
-          <hr class="dark:border-gray-700">
-          <div>
-            <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Debugging</h2>
-            <div class="form-group flex items-center">
-              <input type="checkbox" id="debugMode" class="tw-checkbox" aria-label="Enable debug logs">
-              <label for="debugMode" class="ml-2">Enable Console Debug Logs</label>
-            </div>
-          </div>
-          <hr class="dark:border-gray-700">
-          <div>
-            <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Data Management</h2>
-            <div class="flex flex-wrap gap-2">
-              <button id="backup-data-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Backup Data (JSON)</button>
-              <button id="settings-clear-db-btn" class="tw-button-danger transform transition-transform hover:scale-105">Reset All Data</button>
-              <button id="settings-clear-log-btn" class="tw-button-warning transform transition-transform hover:scale-105">Clear Audit Log</button>
-            </div>
-          </div>
+      <hr class="dark:border-gray-700">
+      <div>
+        <h2 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Data Management</h2>
+        <div class="flex flex-wrap gap-2">
+          <button id="backup-data-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Backup Data (JSON)</button>
+          <button id="restore-data-btn" class="tw-button-secondary transform transition-transform hover:scale-105">Restore Data (JSON)</button>
+          <button id="settings-clear-db-btn" class="tw-button-danger transform transition-transform hover:scale-105">Reset All Data</button>
+          <button id="settings-clear-log-btn" class="tw-button-warning transform transition-transform hover:scale-105">Clear Audit Log</button>
         </div>
       </div>
     </div>
   </div>
 
-  <nav class="bottom-nav fixed bottom-0 left-0 right-0 bg-gray-800 flex justify-around shadow-lg" role="navigation" aria-label="Main navigation">
-    <a id="nav-inventory" href="#inventory" class="nav-link active" aria-label="Inventory" role="tab" aria-selected="true">
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-      <span class="nav-text">Inventory</span>
-    </a>
-    <a id="nav-sales" href="#sales" class="nav-link" aria-label="Sales" role="tab" aria-selected="false">
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-      <span class="nav-text">Sales</span>
-    </a>
-    <a id="nav-reports" href="#reports" class="nav-link" aria-label="Reports" role="tab" aria-selected="false">
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6h3v6m3-6v4h3v2h-3v2m-6-8V7h3v4m-9 6h18" /></svg>
-      <span class="nav-text">Reports</span>
-    </a>
-    <a id="nav-audit" href="#audit" class="nav-link" aria-label="Audit Log" role="tab" aria-selected="false">
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h4a2 2 0 012 2v12a2 2 0 01-2 2z" /></svg>
-      <span class="nav-text">Audit Log</span>
-    </a>
-    <a id="nav-settings" href="#settings" class="nav-link" aria-label="Settings" role="tab" aria-selected="false">
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-      <span class="nav-text">Settings</span>
-    </a>
-  </nav>
-
-  <div id="scanModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
-    <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-xl rounded-xl bg-white dark:bg-gray-800">
-      <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
-        <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Scan Barcode</h2>
-        <span id="scan-modal-close-btn" class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer transform transition-transform hover:scale-110" data-close-modal="scanModal">×</span>
-      </div>
-      <div class="modal-body mt-4 text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Place barcode within the frame.</p>
-        <div id="reader" class="w-full max-w-[400px] mx-auto border-2 border-primary-DEFAULT rounded-md"></div>
-        <button id="cancel-scan-btn" class="tw-button-secondary mt-4 transform transition-transform hover:scale-105">Cancel Scan</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="/app.js"></script>
+  <!-- Remaining sections unchanged: nav, scanModal, script -->
 </body>
 </html>

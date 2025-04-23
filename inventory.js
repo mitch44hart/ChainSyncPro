@@ -12,6 +12,7 @@ import {
   setupRealtimeListeners
 } from './db.js';
 import { notyf, renderTable, renderSalesTable, renderReports, renderAuditTable, renderLocations, updateReportsSummary } from './ui.js';
+import { validateItem, parseCSV, formatDate, formatCurrency, formatNumber } from './utils.js';
 
 // DOM Elements
 const elements = {
@@ -46,14 +47,16 @@ const elements = {
   newCategory: document.getElementById('newCategory'),
   addCategoryBtn: document.getElementById('add-category-btn'),
   lowStockThreshold: document.getElementById('lowStockThreshold'),
-  saveSettingsBtn: document.getElementById('save-settings-btn')
+  saveSettingsBtn: document.getElementById('save-settings-btn'),
+  bulkUploadBtn: document.getElementById('bulk-upload-btn'),
+  bulkUploadInput: document.getElementById('bulk-upload-input')
 };
 
 // State
 let scanner = null;
 let unsubscribeListeners = null;
 
-// Load Inventory with Search
+// Load Inventory
 function loadInventory(items, searchTerm = '') {
   if (searchTerm) {
     const filtered = items.filter(item =>
@@ -87,7 +90,12 @@ function calculateSummary(items) {
   });
   
   renderReports(categories);
-  return { totalItems, totalStock, totalValue, categories };
+  return {
+    totalItems: formatNumber(totalItems),
+    totalStock: formatNumber(totalStock),
+    totalValue: formatCurrency(totalValue),
+    categories
+  };
 }
 
 // Barcode Scanner
@@ -138,11 +146,11 @@ async function exportToExcel() {
     
     const worksheet = XLSX.utils.json_to_sheet(backup.inventory.map(item => ({
       Name: item.name,
-      Quantity: item.quantity,
+      Quantity: formatNumber(item.quantity),
       Category: item.category,
       Location: item.location,
       DOTClass: item.dotClass,
-      Price: item.price
+      Price: item.price ? formatCurrency(item.price) : '-'
     })));
     
     const workbook = XLSX.utils.book_new();
@@ -150,7 +158,7 @@ async function exportToExcel() {
     XLSX.writeFile(workbook, 'inventory_export.xlsx');
     
     await addAuditLog('EXPORT_EXCEL', null, 'Exported inventory to Excel');
-    notyf.success/ref>Inventory exported to Excel.');
+    notyf.success('Inventory exported to Excel.');
   } catch (error) {
     console.error('Error exporting to Excel:', error);
     notyf.error('Failed to export inventory.');
@@ -172,11 +180,11 @@ async function exportToPDF() {
       head: [['Name', 'Quantity', 'Category', 'Location', 'DOT Class', 'Price']],
       body: backup.inventory.map(item => [
         item.name,
-        item.quantity,
+        formatNumber(item.quantity),
         item.category || '-',
         item.location || '-',
         item.dotClass || 'None',
-        item.price ? `$${item.price}` : '-'
+        item.price ? formatCurrency(item.price) : '-'
       ])
     });
     
@@ -291,13 +299,11 @@ async function initInventory() {
       quantity: parseInt(elements.quantity.value) || 1,
       category: elements.category.value.trim(),
       location: elements.location.value.trim(),
-      dotClass: elements.dotClass.value || 'None'
+      dotClass: elements.dotClass.value || 'None',
+      price: parseFloat(elements.price?.value) || undefined
     };
     
-    if (!itemData.name) {
-      notyf.error('Item name is required.');
-      return;
-    }
+    if (!validateItem(itemData)) return;
     
     await saveItem(itemData);
     elements.itemName.value = '';
@@ -305,6 +311,7 @@ async function initInventory() {
     elements.category.value = '';
     elements.location.value = '';
     elements.dotClass.value = 'None';
+    elements.price.value = '';
   });
   
   elements.clearFormBtn.addEventListener('click', () => {
@@ -313,6 +320,7 @@ async function initInventory() {
     elements.category.value = '';
     elements.location.value = '';
     elements.dotClass.value = 'None';
+    elements.price.value = '';
     notyf.success('Form cleared.');
   });
   
@@ -414,6 +422,27 @@ async function initInventory() {
     input.click();
   });
   
+  elements.bulkUploadBtn.addEventListener('click', () => {
+    elements.bulkUploadInput.click();
+  });
+  
+  elements.bulkUploadInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const items = await parseCSV(file);
+      if (items.length > 0) {
+        await bulkImport(items);
+        notyf.success(`Imported ${items.length} items.`);
+      }
+      elements.bulkUploadInput.value = '';
+    } catch (error) {
+      console.error('Error during bulk upload:', error);
+      notyf.error('Failed to import items.');
+    }
+  });
+  
   elements.settingsClearDbBtn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to reset all data? This cannot be undone.')) return;
     
@@ -512,7 +541,7 @@ async function initInventory() {
   setupKeyboardShortcuts();
 }
 
-// Cleanup on Unload
+// Cleanup
 window.addEventListener('beforeunload', () => {
   if (unsubscribeListeners) {
     unsubscribeListeners();

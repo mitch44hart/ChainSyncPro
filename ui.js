@@ -100,7 +100,7 @@ function renderTable(items, update = false) {
   
   if (!items || items.length === 0) {
     const row = document.createElement('tr');
-    row.innerHTML = '<td colspan="5" class="text-center p-5 text-gray-500">No items found.</td>';
+    row.innerHTML = '<td colspan="6" class="text-center p-5 text-gray-500">No items found.</td>';
     fragment.appendChild(row);
     elements.inventoryBody.appendChild(fragment);
     return;
@@ -114,6 +114,7 @@ function renderTable(items, update = false) {
       <td class="px-5 py-3">${item.quantity || 0}</td>
       <td class="px-5 py-3">${item.category || '-'}</td>
       <td class="px-5 py-3">${item.location || '-'}</td>
+      <td class="px-5 py-3">${item.dotClass || 'None'}</td>
       <td class="px-5 py-3">
         <button class="edit-item-btn text-blue-500 hover:text-blue-700 mr-2" data-id="${item.id}" aria-label="Edit ${item.name || 'item'}">
           <svg class="h-5 w-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -343,47 +344,4 @@ function setupTableSorting(tableId, bodyId, sortColAttr) {
       
       const tbody = document.getElementById(bodyId);
       tbody.innerHTML = '';
-      rows.forEach(row => tbody.appendChild(row));
-    });
-  });
-}
-
-// Initialize UI
-function initUI() {
-  elements.navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const sectionId = link.getAttribute('href').slice(1);
-      switchSection(sectionId);
-    });
-  });
-  
-  setupTableSorting('inventoryTable', 'inventoryBody', 'data-sort-col');
-  setupTableSorting('auditTable', 'auditBody', 'data-log-sort-col');
-  
-  elements.darkThemeCheckbox.addEventListener('change', () => {
-    updateTheme(elements.darkThemeCheckbox.checked);
-  });
-  
-  loadTheme();
-}
-
-// Update Reports Summary
-function updateReportsSummary(totalItems, totalStock, totalValue) {
-  elements.reportTotalItems.textContent = totalItems || 0;
-  elements.reportTotalStock.textContent = totalStock || 0;
-  elements.reportInventoryValue.textContent = totalValue ? `$${parseFloat(totalValue).toFixed(2)}` : '$0.00';
-}
-
-export {
-  notyf,
-  renderTable,
-  renderSalesTable,
-  renderReports,
-  renderAuditTable,
-  renderLocations,
-  switchSection,
-  updateTheme,
-  initUI,
-  updateReportsSummary
-};
+      rows.forEach

@@ -87,12 +87,28 @@
           </div>
           <div class="form-group">
             <label for="category" class="tw-label">Category (Optional)</label>
-            <input type="text" id="category" placeholder="e.g., Food, Clothing" class="tw-input" aria-label="Category">
+            <select id="category" class="tw-input" aria-label="Category">
+              <option value="">Select or type category</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="location" class="tw-label">Location (Optional)</label>
             <select id="location" class="tw-input" aria-label="Location">
               <option value="">Select or add location</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="dotClass" class="tw-label">DOT Hazard Class (Optional)</label>
+            <select id="dotClass" class="tw-input" aria-label="DOT Hazard Class">
+              <option value="None">None</option>
+              <option value="Flammable">Flammable</option>
+              <option value="Corrosive">Corrosive</option>
+              <option value="Toxic">Toxic</option>
+              <option value="Oxidizer">Oxidizer</option>
+              <option value="Explosive">Explosive</option>
+              <option value="Gas">Gas</option>
+              <option value="Radioactive">Radioactive</option>
+              <option value="Miscellaneous">Miscellaneous</option>
             </select>
           </div>
         </div>
@@ -111,11 +127,12 @@
                 <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="1">Quantity</th>
                 <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="2">Category</th>
                 <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="3">Location</th>
+                <th class="px-5 py-3 text-left cursor-pointer" data-sort-col="4">DOT Class</th>
                 <th class="px-5 py-3 text-left">Actions</th>
               </tr>
             </thead>
             <tbody id="inventoryBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="5" class="text-center p-5 text-gray-500">Loading inventory...</td></tr>
+              <tr><td colspan="6" class="text-center p-5 text-gray-500">Loading inventory...</td></tr>
             </tbody>
           </table>
         </div>
@@ -239,6 +256,16 @@
                 <li>Loading locations...</li>
               </ul>
             </div>
+            <div class="form-group">
+              <label for="newCategory" class="tw-label">Custom Categories</label>
+              <div class="flex gap-2 mb-2">
+                <input type="text" id="newCategory" class="tw-input flex-grow" placeholder="e.g., Electronics, Perishables" aria-label="New category">
+                <button id="add-category-btn" class="tw-button-primary whitespace-nowrap transform transition-transform hover:scale-105">Add Category</button>
+              </div>
+              <ul id="categoryList" class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+                <li>Loading categories...</li>
+              </ul>
+            </div>
             <button id="save-shop-details-btn" class="tw-button-primary mt-4 transform transition-transform hover:scale-105">Save Shop Details</button>
           </div>
           <hr class="dark:border-gray-700">
@@ -298,7 +325,7 @@
     <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-xl rounded-xl bg-white dark:bg-gray-800">
       <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
         <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Scan Barcode</h2>
-        <span id="scan-modal-close-btn" class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer transform transition-transform hover:scale-110" data-close-modal="scanModal">&times;</span>
+        <span id="scan-modal-close-btn" class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer transform transition-transform hover:scale-110" data-close-modal="scanModal">×</span>
       </div>
       <div class="modal-body mt-4 text-center">
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Place barcode within the frame.</p>

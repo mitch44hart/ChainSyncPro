@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -192,8 +153,11 @@
         .pagination button { @apply tw-button-secondary py-1 px-3 text-sm; }
         .pagination button.active { @apply bg-primary-DEFAULT text-white; }
         .fallback { text-align: center; color: #ff0000; margin: 20px; }
+        .filter-container { @apply grid grid-cols-1 md:grid-cols-3 gap-4 mb-6; }
+        .range-slider { @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer; }
         @media (max-width: 768px) {
             .item-image { width: 30px; height: 30px; }
+            .filter-container { @apply grid-cols-1; }
         }
     </style>
 </head>
@@ -224,22 +188,72 @@
                         <input type="number" id="quantity" placeholder="1" min="1" step="1" class="tw-input" required value="1">
                     </div>
                     <div class="form-group">
-                        <label for="category" class="tw-label">Category (Optional)</label>
-                        <input type="text" id="category" placeholder="e.g., Food, Clothing" class="tw-input">
+                        <label for="category" class="tw-label">Category</label>
+                        <select id="category" class="tw-input">
+                            <option value="">Select category</option>
+                            <option value="add-new">Add New Category...</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="location" class="tw-label">Location (Optional)</label>
+                        <label for="location" class="tw-label">Location</label>
                         <select id="location" class="tw-input">
                             <option value="">Select or add location</option>
+                        </select>
+                    </div>
+                    <!-- NEW: DOT Classification -->
+                    <div class="form-group">
+                        <label for="dotClassification" class="tw-label">DOT Classification</label>
+                        <select id="dotClassification" class="tw-input">
+                            <option value="">None</option>
+                            <option value="Flammable">Flammable</option>
+                            <option value="Gas">Gas</option>
+                            <option value="Corrosive">Corrosive</option>
+                            <option value="Explosive">Explosive</option>
+                            <option value="Toxic">Toxic</option>
+                            <option value="Oxidizer">Oxidizer</option>
+                            <option value="Radioactive">Radioactive</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                            <option value="add-new">Add New Classification...</option>
                         </select>
                     </div>
                 </div>
                 <div class="form-actions mb-6 flex gap-2">
                     <button onclick="quickAddItem()" class="tw-button-primary">Add Item</button>
                     <button onclick="clearForm()" class="tw-button-secondary">Clear</button>
+                    <!-- NEW: Bulk Import -->
+                    <button onclick="openBulkImportModal()" class="tw-button-secondary">Bulk Import</button>
                 </div>
-                <div class="filter-group mb-6 flex gap-4">
-                    <input type="text" id="searchInput" placeholder="Search items..." class="tw-input w-full md:w-1/3">
+                <!-- NEW: Advanced Filtering -->
+                <div class="filter-container">
+                    <div class="form-group">
+                        <label for="filterName" class="tw-label">Filter by Name</label>
+                        <input type="text" id="filterName" placeholder="Search by name..." class="tw-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterCategory" class="tw-label">Filter by Category</label>
+                        <select id="filterCategory" class="tw-input">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterDot" class="tw-label">Filter by DOT Classification</label>
+                        <select id="filterDot" class="tw-input">
+                            <option value="">All Classifications</option>
+                            <option value="Flammable">Flammable</option>
+                            <option value="Gas">Gas</option>
+                            <option value="Corrosive">Corrosive</option>
+                            <option value="Explosive">Explosive</option>
+                            <option value="Toxic">Toxic</option>
+                            <option value="Oxidizer">Oxidizer</option>
+                            <option value="Radioactive">Radioactive</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterQuantity" class="tw-label">Quantity Range</label>
+                        <input type="range" id="filterQuantity" min="0" max="100" value="0" class="range-slider">
+                        <span id="quantityValue">0+</span>
+                    </div>
                 </div>
                 <div class="table-container overflow-x-auto">
                     <table id="inventoryTable" class="min-w-full leading-normal">
@@ -249,6 +263,7 @@
                                 <th class="px-5 py-3">Quantity</th>
                                 <th class="px-5 py-3">Category</th>
                                 <th class="px-5 py-3">Location</th>
+                                <th class="px-5 py-3">DOT Classification</th>
                                 <th class="px-5 py-3">Actions</th>
                             </tr>
                         </thead>
@@ -315,6 +330,7 @@
                                     <th class="px-5 py-3">Category</th>
                                     <th class="px-5 py-3">Total Items</th>
                                     <th class="px-5 py-3">Total Quantity</th>
+                                    <th class="px-5 py-3">DOT Classifications</th>
                                 </tr>
                             </thead>
                             <tbody id="reportsBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
@@ -360,6 +376,26 @@
                             <input type="text" id="locations" class="tw-input" placeholder="e.g., Main Store, Warehouse">
                             <button onclick="addLocation()" class="tw-button-primary mt-2">Add Location</button>
                         </div>
+                    </div>
+                    <!-- NEW: Category Presets -->
+                    <div>
+                        <h2 class="text-xl font-medium mb-3">Category Presets</h2>
+                        <div class="form-group">
+                            <label for="categoryPreset" class="tw-label">Add Category</label>
+                            <input type="text" id="categoryPreset" class="tw-input" placeholder="e.g., Electronics">
+                            <button onclick="addCategoryPreset()" class="tw-button-primary mt-2">Add Category</button>
+                        </div>
+                        <div id="categoryList" class="mt-4"></div>
+                    </div>
+                    <!-- NEW: DOT Classifications -->
+                    <div>
+                        <h2 class="text-xl font-medium mb-3">Custom DOT Classifications</h2>
+                        <div class="form-group">
+                            <label for="dotPreset" class="tw-label">Add Custom Classification</label>
+                            <input type="text" id="dotPreset" class="tw-input" placeholder="e.g., Biohazard">
+                            <button onclick="addDotPreset()" class="tw-button-primary mt-2">Add Classification</button>
+                        </div>
+                        <div id="dotList" class="mt-4"></div>
                     </div>
                     <div>
                         <h2 class="text-xl font-medium mb-3">Theme</h2>
@@ -432,6 +468,101 @@
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Place barcode within the frame.</p>
                 <div id="reader"></div>
                 <button onclick="stopScanner()" class="tw-button-secondary mt-4">Cancel Scan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Edit Item Modal -->
+    <div id="editModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
+        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Edit Item</h2>
+                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('editModal')">×</span>
+            </div>
+            <div class="modal-body mt-4">
+                <div class="form-group mb-4">
+                    <label for="editItemName" class="tw-label">Item Name</label>
+                    <input type="text" id="editItemName" class="tw-input" required>
+                </div>
+                <div class="form-group mb-4">
+                    <label for="editQuantity" class="tw-label">Quantity</label>
+                    <input type="number" id="editQuantity" min="1" step="1" class="tw-input" required>
+                </div>
+                <div class="form-group mb-4">
+                    <label for="editCategory" class="tw-label">Category</label>
+                    <select id="editCategory" class="tw-input">
+                        <option value="">Select category</option>
+                        <option value="add-new">Add New Category...</option>
+                    </select>
+                </div>
+                <div class="form-group mb-4">
+                    <label for="editLocation" class="tw-label">Location</label>
+                    <select id="editLocation" class="tw-input">
+                        <option value="">Select or add location</option>
+                    </select>
+                </div>
+                <div class="form-group mb-4">
+                    <label for="editDotClassification" class="tw-label">DOT Classification</label>
+                    <select id="editDotClassification" class="tw-input">
+                        <option value="">None</option>
+                        <option value="Flammable">Flammable</option>
+                        <option value="Gas">Gas</option>
+                        <option value="Corrosive">Corrosive</option>
+                        <option value="Explosive">Explosive</option>
+                        <option value="Toxic">Toxic</option>
+                        <option value="Oxidizer">Oxidizer</option>
+                        <option value="Radioactive">Radioactive</option>
+                        <option value="Miscellaneous">Miscellaneous</option>
+                        <option value="add-new">Add New Classification...</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveEditedItem()" class="tw-button-primary">Save</button>
+                    <button onclick="closeModal('editModal')" class="tw-button-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Bulk Import Modal -->
+    <div id="bulkImportModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
+        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Bulk Import</h2>
+                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('bulkImportModal')">×</span>
+            </div>
+            <div class="modal-body mt-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Upload a CSV file with columns: Item Name, Quantity, Category, Location, DOT Classification.</p>
+                <input type="file" id="bulkImportFile" accept=".csv" class="tw-input mb-4">
+                <div class="flex gap-2">
+                    <button onclick="importBulkItems()" class="tw-button-primary">Import</button>
+                    <button onclick="closeModal('bulkImportModal')" class="tw-button-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Shortcut Help Modal -->
+    <div id="shortcutModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden items-center justify-center" style="z-index: 1002;">
+        <div class="modal-content relative p-6 border w-11/12 max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="modal-header flex justify-between items-center pb-3 border-b dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-primary-DEFAULT dark:text-primary-light">Keyboard Shortcuts</h2>
+                <span class="close-btn text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-3xl font-bold cursor-pointer" onclick="closeModal('shortcutModal')">×</span>
+            </div>
+            <div class="modal-body mt-4">
+                <ul class="text-sm text-gray-600 dark:text-gray-400">
+                    <li><strong>Ctrl+1</strong>: Inventory Section</li>
+                    <li><strong>Ctrl+2</strong>: Sales Section</li>
+                    <li><strong>Ctrl+3</strong>: Reports Section</li>
+                    <li><strong>Ctrl+4</strong>: Audit Log Section</li>
+                    <li><strong>Ctrl+5</strong>: Settings Section</li>
+                    <li><strong>Ctrl+S</strong>: Open Barcode Scanner</li>
+                    <li><strong>Ctrl+Enter</strong>: Add Item</li>
+                    <li><strong>Ctrl+E</strong>: Edit Selected Item</li>
+                    <li><strong>Ctrl+B</strong>: Open Bulk Import</li>
+                    <li><strong>Ctrl+/</strong>: Show This Help</li>
+                </ul>
+                <button onclick="closeModal('shortcutModal')" class="tw-button-secondary mt-4">Close</button>
             </div>
         </div>
     </div>

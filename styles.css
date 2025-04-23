@@ -86,6 +86,18 @@ td.item-name-cell:hover {
 .section.active {
   display: block;
 }
+th[aria-sort="ascending"]::after {
+  content: ' ↑';
+  color: #fff;
+}
+th[aria-sort="descending"]::after {
+  content: ' ↓';
+  color: #fff;
+}
+th.sort-asc::after,
+th.sort-desc::after {
+  margin-left: 0.5rem;
+}
 @media (max-width: 640px) {
   .nav-text {
     font-size: 0.65rem;

@@ -4,8 +4,11 @@
   status = 200
 
 [build]
-  command = "npm install && npx tailwindcss -i ./styles.css -o ./dist/styles.css --minify"
+  command = "npm install && npm run build"
   publish = "."
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[headers]]
   for = "/*"

@@ -1,20 +1,16 @@
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  startAfter,
-  getDoc,
-  setDoc
-} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+  saveItem,
+  updateItem,
+  deleteItem,
+  saveSale,
+  bulkImport,
+  backupData,
+  restoreData,
+  saveUserSettings,
+  loadUserSettings,
+  addAuditLog,
+  setupRealtimeListeners
+} from './db.js';
 import { notyf, renderTable, renderSalesTable, renderReports, renderAuditTable, renderLocations, updateReportsSummary } from './ui.js';
 
 // DOM Elements
@@ -23,6 +19,7 @@ const elements = {
   quantity: document.getElementById('quantity'),
   category: document.getElementById('category'),
   location: document.getElementById('location'),
+  dotClass: document.getElementById('dotClass'),
   saleItemName: document.getElementById('saleItemName'),
   saleQuantity: document.getElementById('saleQuantity'),
   searchInput: document.getElementById('searchInput'),
@@ -43,236 +40,54 @@ const elements = {
   saveShopDetailsBtn: document.getElementById('save-shop-details-btn'),
   debugMode: document.getElementById('debugMode'),
   backupDataBtn: document.getElementById('backup-data-btn'),
+  restoreDataBtn: document.getElementById('restore-data-btn'),
   settingsClearDbBtn: document.getElementById('settings-clear-db-btn'),
   settingsClearLogBtn: document.getElementById('settings-clear-log-btn'),
   newCategory: document.getElementById('newCategory'),
-  addCategoryBtn: document.getElementById('add-category-btn')
+  addCategoryBtn: document.getElementById('add-category-btn'),
+  lowStockThreshold: document.getElementById('lowStockThreshold'),
+  saveSettingsBtn: document.getElementById('save-settings-btn')
 };
 
 // State
-let lastInventoryDoc = null;
-let lastSalesDoc = null;
-const ITEMS_PER_PAGE = 10;
 let scanner = null;
-const DOT_CLASSES = [
-  'None',
-  'Flammable',
-  'Corrosive',
-  'Toxic',
-  'Oxidizer',
-  'Explosive',
-  'Gas',
-  'Radioactive',
-  'Miscellaneous'
-];
+let unsubscribeListeners = null;
 
-// Load Inventory with Pagination
-async function loadInventory(searchTerm = '') {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  let q = query(
-    collection(db, 'users', user.uid, 'inventory'),
-    orderBy('name'),
-    limit(ITEMS_PER_PAGE)
-  );
-  
-  if (lastInventoryDoc) {
-    q = query(q, startAfter(lastInventoryDoc));
+// Load Inventory with Search
+function loadInventory(items, searchTerm = '') {
+  if (searchTerm) {
+    const filtered = items.filter(item =>
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    renderTable(filtered);
+  } else {
+    renderTable(items);
   }
-  
-  try {
-    const snapshot = await getDocs(q);
-    lastInventoryDoc = snapshot.docs[snapshot.docs.length - 1];
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    if (searchTerm) {
-      const filtered = items.filter(item =>
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      renderTable(filtered);
-    } else {
-      renderTable(items);
-    }
-    
-    updateReportsSummary(await calculateSummary());
-  } catch (error) {
-    console.error('Error loading inventory:', error);
-    notyf.error('Failed to load inventory.');
-  }
-}
-
-// Load Sales with Pagination
-async function loadSales() {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  let q = query(
-    collection(db, 'users', user.uid, 'sales'),
-    orderBy('timestamp', 'desc'),
-    limit(ITEMS_PER_PAGE)
-  );
-  
-  if (lastSalesDoc) {
-    q = query(q, startAfter(lastSalesDoc));
-  }
-  
-  try {
-    const snapshot = await getDocs(q);
-    lastSalesDoc = snapshot.docs[snapshot.docs.length - 1];
-    const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderSalesTable(sales);
-  } catch (error) {
-    console.error('Error loading sales:', error);
-    notyf.error('Failed to load sales.');
-  }
+  updateReportsSummary(calculateSummary(items));
 }
 
 // Calculate Reports Summary
-async function calculateSummary() {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return { totalItems: 0, totalStock: 0, totalValue: 0, categories: {} };
+function calculateSummary(items) {
+  const categories = {};
+  let totalItems = 0;
+  let totalStock = 0;
+  let totalValue = 0;
   
-  try {
-    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    const categories = {};
-    let totalItems = 0;
-    let totalStock = 0;
-    let totalValue = 0;
-    
-    items.forEach(item => {
-      const category = item.category || 'Uncategorized';
-      if (!categories[category]) {
-        categories[category] = { totalItems: 0, totalQuantity: 0 };
-      }
-      categories[category].totalItems += 1;
-      categories[category].totalQuantity += parseInt(item.quantity || 0);
-      totalItems += 1;
-      totalStock += parseInt(item.quantity || 0);
-      totalValue += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
-    });
-    
-    renderReports(categories);
-    return { totalItems, totalStock, totalValue, categories };
-  } catch (error) {
-    console.error('Error calculating summary:', error);
-    notyf.error('Failed to generate reports.');
-    return { totalItems: 0, totalStock: 0, totalValue: 0, categories: {} };
-  }
-}
-
-// Add Item
-async function addItem(itemData) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    notyf.error('Please log in to add items.');
-    return;
-  }
-  
-  try {
-    const itemRef = await addDoc(collection(db, 'users', user.uid, 'inventory'), {
-      ...itemData,
-      createdAt: new Date(),
-      dotClass: itemData.dotClass || 'None'
-    });
-    
-    await addAuditLog('ADD_ITEM', itemData.name, `Added ${itemData.quantity} units`);
-    notyf.success(`Added ${itemData.name} to inventory.`);
-    elements.itemName.classList.add('animate-pulse');
-    setTimeout(() => elements.itemName.classList.remove('animate-pulse'), 500);
-  } catch (error) {
-    console.error('Error adding item:', error);
-    notyf.error('Failed to add item.');
-  }
-}
-
-// Edit Item
-async function editItem(itemId, updatedData) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  try {
-    await updateDoc(doc(db, 'users', user.uid, 'inventory', itemId), updatedData);
-    await addAuditLog('EDIT_ITEM', updatedData.name, `Updated details`);
-    notyf.success(`Updated ${updatedData.name}.`);
-  } catch (error) {
-    console.error('Error editing item:', error);
-    notyf.error('Failed to update item.');
-  }
-}
-
-// Delete Item
-async function deleteItem(itemId, itemName) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  try {
-    await deleteDoc(doc(db, 'users', user.uid, 'inventory', itemId));
-    await addAuditLog('DELETE_ITEM', itemName, `Removed from inventory`);
-    notyf.success(`Deleted ${itemName}.`);
-  } catch (error) {
-    console.error('Error deleting item:', error);
-    notyf.error('Failed to delete item.');
-  }
-}
-
-// Record Sale
-async function recordSale(saleData) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    notyf.error('Please log in to record sales.');
-    return;
-  }
-  
-  try {
-    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
-    const item = snapshot.docs.find(doc => doc.data().name === saleData.itemName);
-    
-    if (!item) {
-      notyf.error('Item not found in inventory.');
-      return;
+  items.forEach(item => {
+    const category = item.category || 'Uncategorized';
+    if (!categories[category]) {
+      categories[category] = { totalItems: 0, totalQuantity: 0 };
     }
-    
-    const currentQuantity = parseInt(item.data().quantity || 0);
-    if (currentQuantity < saleData.quantity) {
-      notyf.error('Insufficient stock for sale.');
-      return;
-    }
-    
-    await addDoc(collection(db, 'users', user.uid, 'sales'), {
-      ...saleData,
-      timestamp: new Date()
-    });
-    
-    await updateDoc(doc(db, 'users', user.uid, 'inventory', item.id), {
-      quantity: currentQuantity - saleData.quantity
-    });
-    
-    await addAuditLog('RECORD_SALE', saleData.itemName, `Sold ${saleData.quantity} units`);
-    notyf.success(`Recorded sale of ${saleData.quantity} ${saleData.itemName}.`);
-    elements.saleItemName.classList.add('animate-pulse');
-    setTimeout(() => elements.saleItemName.classList.remove('animate-pulse'), 500);
-  } catch (error) {
-    console.error('Error recording sale:', error);
-    notyf.error('Failed to record sale.');
-  }
+    categories[category].totalItems += 1;
+    categories[category].totalQuantity += parseInt(item.quantity || 0);
+    totalItems += 1;
+    totalStock += parseInt(item.quantity || 0);
+    totalValue += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+  });
+  
+  renderReports(categories);
+  return { totalItems, totalStock, totalValue, categories };
 }
 
 // Barcode Scanner
@@ -317,16 +132,11 @@ function stopScanner() {
 
 // Export to Excel
 async function exportToExcel() {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
   try {
-    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
-    const items = snapshot.docs.map(doc => doc.data());
+    const backup = await backupData();
+    if (!backup) return;
     
-    const worksheet = XLSX.utils.json_to_sheet(items.map(item => ({
+    const worksheet = XLSX.utils.json_to_sheet(backup.inventory.map(item => ({
       Name: item.name,
       Quantity: item.quantity,
       Category: item.category,
@@ -340,7 +150,7 @@ async function exportToExcel() {
     XLSX.writeFile(workbook, 'inventory_export.xlsx');
     
     await addAuditLog('EXPORT_EXCEL', null, 'Exported inventory to Excel');
-    notyf.success('Inventory exported to Excel.');
+    notyf.success/ref>Inventory exported to Excel.');
   } catch (error) {
     console.error('Error exporting to Excel:', error);
     notyf.error('Failed to export inventory.');
@@ -349,23 +159,18 @@ async function exportToExcel() {
 
 // Export to PDF
 async function exportToPDF() {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
   try {
+    const backup = await backupData();
+    if (!backup) return;
+    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
-    const snapshot = await getDocs(collection(db, 'users', user.uid, 'inventory'));
-    const items = snapshot.docs.map(doc => doc.data());
     
     doc.text('ChainSync Lite - Inventory Report', 10, 10);
     doc.autoTable({
       startY: 20,
       head: [['Name', 'Quantity', 'Category', 'Location', 'DOT Class', 'Price']],
-      body: items.map(item => [
+      body: backup.inventory.map(item => [
         item.name,
         item.quantity,
         item.category || '-',
@@ -386,15 +191,9 @@ async function exportToPDF() {
 
 // Manage Locations
 async function addLocation(location) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
   try {
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-    const locations = userDoc.exists() && userDoc.data().locations ? userDoc.data().locations : [];
+    const settings = await loadUserSettings();
+    const locations = settings?.locations || [];
     
     if (locations.includes(location)) {
       notyf.error('Location already exists.');
@@ -402,8 +201,7 @@ async function addLocation(location) {
     }
     
     locations.push(location);
-    await setDoc(userDocRef, { locations }, { merge: true });
-    renderLocations(locations, elements.location);
+    await saveUserSettings({ locations });
     notyf.success(`Added location: ${location}`);
     elements.newLocation.classList.add('animate-pulse');
     setTimeout(() => elements.newLocation.classList.remove('animate-pulse'), 500);
@@ -414,19 +212,10 @@ async function addLocation(location) {
 }
 
 async function deleteLocation(location) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
   try {
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-    const locations = userDoc.exists() && userDoc.data().locations ? userDoc.data().locations : [];
-    
-    const updatedLocations = locations.filter(loc => loc !== location);
-    await setDoc(userDocRef, { locations: updatedLocations }, { merge: true });
-    renderLocations(updatedLocations, elements.location);
+    const settings = await loadUserSettings();
+    const locations = (settings?.locations || []).filter(loc => loc !== location);
+    await saveUserSettings({ locations });
     notyf.success(`Deleted location: ${location}`);
   } catch (error) {
     console.error('Error deleting location:', error);
@@ -436,15 +225,9 @@ async function deleteLocation(location) {
 
 // Manage Categories
 async function addCategory(category) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
   try {
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-    const categories = userDoc.exists() && userDoc.data().categories ? userDoc.data().categories : [];
+    const settings = await loadUserSettings();
+    const categories = settings?.categories || [];
     
     if (categories.includes(category)) {
       notyf.error('Category already exists.');
@@ -452,8 +235,7 @@ async function addCategory(category) {
     }
     
     categories.push(category);
-    await setDoc(userDocRef, { categories }, { merge: true });
-    renderCategoryOptions(categories);
+    await saveUserSettings({ categories });
     notyf.success(`Added category: ${category}`);
   } catch (error) {
     console.error('Error adding category:', error);
@@ -477,54 +259,6 @@ async function renderCategoryOptions(categories) {
   
   elements.category.replaceWith(categorySelect);
   elements.category = categorySelect;
-}
-
-// Audit Log
-async function addAuditLog(action, itemName, details) {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  try {
-    await addDoc(collection(db, 'users', user.uid, 'audit'), {
-      action,
-      itemName,
-      details,
-      timestamp: new Date()
-    });
-  } catch (error) {
-    console.error('Error adding audit log:', error);
-  }
-}
-
-// Real-Time Listeners
-function setupRealtimeListeners() {
-  const db = getFirestore();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  onSnapshot(collection(db, 'users', user.uid, 'inventory'), () => {
-    loadInventory(elements.searchInput.value);
-  });
-  
-  onSnapshot(collection(db, 'users', user.uid, 'sales'), () => {
-    loadSales();
-  });
-  
-  onSnapshot(collection(db, 'users', user.uid, 'audit'), (snapshot) => {
-    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderAuditTable(logs);
-  });
-  
-  onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      renderLocations(data.locations || [], elements.location);
-      renderCategoryOptions(data.categories || []);
-    }
-  });
 }
 
 // Keyboard Shortcuts
@@ -557,7 +291,7 @@ async function initInventory() {
       quantity: parseInt(elements.quantity.value) || 1,
       category: elements.category.value.trim(),
       location: elements.location.value.trim(),
-      dotClass: elements.dotClass?.value || 'None'
+      dotClass: elements.dotClass.value || 'None'
     };
     
     if (!itemData.name) {
@@ -565,11 +299,12 @@ async function initInventory() {
       return;
     }
     
-    await addItem(itemData);
+    await saveItem(itemData);
     elements.itemName.value = '';
     elements.quantity.value = '1';
     elements.category.value = '';
     elements.location.value = '';
+    elements.dotClass.value = 'None';
   });
   
   elements.clearFormBtn.addEventListener('click', () => {
@@ -577,6 +312,7 @@ async function initInventory() {
     elements.quantity.value = '1';
     elements.category.value = '';
     elements.location.value = '';
+    elements.dotClass.value = 'None';
     notyf.success('Form cleared.');
   });
   
@@ -595,7 +331,7 @@ async function initInventory() {
       return;
     }
     
-    await recordSale(saleData);
+    await saveSale(saleData);
     elements.saleItemName.value = '';
     elements.saleQuantity.value = '1';
   });
@@ -607,8 +343,7 @@ async function initInventory() {
   });
   
   elements.searchInput.addEventListener('input', () => {
-    lastInventoryDoc = null;
-    loadInventory(elements.searchInput.value);
+    loadInventory(currentItems, elements.searchInput.value);
   });
   
   elements.reportExportExcelBtn.addEventListener('click', exportToExcel);
@@ -624,16 +359,19 @@ async function initInventory() {
     elements.newLocation.value = '';
   });
   
+  elements.addCategoryBtn.addEventListener('click', () => {
+    const category = elements.newCategory.value.trim();
+    if (!category) {
+      notyf.error('Category name is required.');
+      return;
+    }
+    addCategory(category);
+    elements.newCategory.value = '';
+  });
+  
   elements.saveShopDetailsBtn.addEventListener('click', async () => {
-    const db = getFirestore();
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-    
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        shopName: elements.shopName.value.trim()
-      }, { merge: true });
+      await saveUserSettings({ shopName: elements.shopName.value.trim() });
       notyf.success('Shop details saved.');
     } catch (error) {
       console.error('Error saving shop details:', error);
@@ -642,51 +380,49 @@ async function initInventory() {
   });
   
   elements.backupDataBtn.addEventListener('click', async () => {
-    const db = getFirestore();
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
+    const backup = await backupData();
+    if (!backup) return;
     
-    try {
-      const inventory = await getDocs(collection(db, 'users', user.uid, 'inventory'));
-      const sales = await getDocs(collection(db, 'users', user.uid, 'sales'));
-      const audit = await getDocs(collection(db, 'users', user.uid, 'audit'));
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chainsync_backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    notyf.success('Data backed up successfully.');
+  });
+  
+  elements.restoreDataBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
       
-      const backup = {
-        inventory: inventory.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        sales: sales.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        audit: audit.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      };
-      
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'chainsync_backup.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      notyf.success('Data backed up successfully.');
-    } catch (error) {
-      console.error('Error backing up data:', error);
-      notyf.error('Failed to backup data.');
-    }
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        await restoreData(backup);
+      } catch (error) {
+        console.error('Error restoring data:', error);
+        notyf.error('Failed to restore data.');
+      }
+    };
+    input.click();
   });
   
   elements.settingsClearDbBtn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to reset all data? This cannot be undone.')) return;
     
-    const db = getFirestore();
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-    
     try {
       const collections = ['inventory', 'sales', 'audit'];
       for (const col of collections) {
-        const snapshot = await getDocs(collection(db, 'users', user.uid, col));
+        const snapshot = await getDocs(collection(db, 'users', auth.currentUser.uid, col));
         for (const docSnap of snapshot.docs) {
-          await deleteDoc(doc(db, 'users', user.uid, col, docSnap.id));
+          await deleteDoc(doc(db, 'users', auth.currentUser.uid, col, docSnap.id));
         }
       }
       notyf.success('All data reset.');
@@ -699,20 +435,27 @@ async function initInventory() {
   elements.settingsClearLogBtn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to clear the audit log? This cannot be undone.')) return;
     
-    const db = getFirestore();
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-    
     try {
-      const snapshot = await getDocs(collection(db, 'users', user.uid, 'audit'));
+      const snapshot = await getDocs(collection(db, 'users', auth.currentUser.uid, 'audit'));
       for (const docSnap of snapshot.docs) {
-        await deleteDoc(doc(db, 'users', user.uid, 'audit', docSnap.id));
+        await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'audit', docSnap.id));
       }
       notyf.success('Audit log cleared.');
     } catch (error) {
       console.error('Error clearing audit log:', error);
       notyf.error('Failed to clear audit log.');
+    }
+  });
+  
+  elements.saveSettingsBtn.addEventListener('click', async () => {
+    try {
+      await saveUserSettings({
+        lowStockThreshold: parseInt(elements.lowStockThreshold.value) || 10
+      });
+      notyf.success('Settings saved.');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      notyf.error('Failed to save settings.');
     }
   });
   
@@ -724,7 +467,7 @@ async function initInventory() {
       const itemId = editBtn.dataset.id;
       const itemName = prompt('Enter new item name:', editBtn.closest('tr').children[0].textContent);
       if (itemName) {
-        await editItem(itemId, { name: itemName });
+        await updateItem(itemId, { name: itemName });
       }
     }
     
@@ -747,10 +490,33 @@ async function initInventory() {
     }
   });
   
-  await loadInventory();
-  await loadSales();
-  setupRealtimeListeners();
+  // Setup Real-Time Listeners
+  let currentItems = [];
+  unsubscribeListeners = setupRealtimeListeners({
+    onInventoryUpdate: (items) => {
+      currentItems = items;
+      loadInventory(items, elements.searchInput.value);
+    },
+    onSalesUpdate: (sales) => {
+      renderSalesTable(sales);
+    },
+    onAuditUpdate: (logs) => {
+      renderAuditTable(logs);
+    },
+    onSettingsUpdate: (data) => {
+      renderLocations(data.locations, elements.location);
+      renderCategoryOptions(data.categories);
+    }
+  });
+  
   setupKeyboardShortcuts();
 }
+
+// Cleanup on Unload
+window.addEventListener('beforeunload', () => {
+  if (unsubscribeListeners) {
+    unsubscribeListeners();
+  }
+});
 
 export { initInventory };

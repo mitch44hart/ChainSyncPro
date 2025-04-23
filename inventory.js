@@ -1,10 +1,19 @@
 let inventory = [];
 let sales = [];
 let auditLog = [];
-let settings = { theme: 'light', shopName: '', locations: [], debugMode: false };
+let settings = {
+    theme: 'light',
+    shopName: '',
+    locations: [],
+    debugMode: false,
+    categories: [], // NEW: Category presets
+    dotClassifications: [], // NEW: Custom DOT classifications
+    filters: { name: '', category: '', dot: '', quantity: 0 } // NEW: Filter settings
+};
 let html5QrCode = null;
 let currentPage = 1;
 const itemsPerPage = 20;
+let selectedItemId = null; // NEW: Track item for editing
 
 function initializeApp() {
     initializeDatabase(() => {
@@ -21,14 +30,18 @@ async function loadInventory() {
     renderTable();
     updateReports();
     updateLocationDropdown();
+    updateCategoryDropdown();
+    updateDotDropdown();
+    updateFilterDropdowns();
 }
 
 function quickAddItem() {
     try {
         const itemName = document.getElementById('itemName').value.trim();
         const quantity = parseInt(document.getElementById('quantity').value) || 1;
-        const category = document.getElementById('category').value.trim() || 'Uncategorized';
+        let category = document.getElementById('category').value;
         const location = document.getElementById('location').value || 'Store';
+        let dotClassification = document.getElementById('dotClassification').value;
 
         if (!itemName) {
             showNotification('Item name is required.', 'error');
@@ -39,7 +52,33 @@ function quickAddItem() {
             return;
         }
 
-        const item = { itemName, quantity, category, location };
+        // NEW: Handle add-new category
+        if (category === 'add-new') {
+            const newCategory = prompt('Enter new category name:');
+            if (newCategory && !settings.categories.includes(newCategory)) {
+                settings.categories.push(newCategory);
+                saveSettings('categories', settings.categories);
+                updateCategoryDropdown();
+                category = newCategory;
+            } else {
+                category = '';
+            }
+        }
+
+        // NEW: Handle add-new DOT classification
+        if (dotClassification === 'add-new') {
+            const newDot = prompt('Enter new DOT classification:');
+            if (newDot && !settings.dotClassifications.includes(newDot)) {
+                settings.dotClassifications.push(newDot);
+                saveSettings('dotClassifications', settings.dotClassifications);
+                updateDotDropdown();
+                dotClassification = newDot;
+            } else {
+                dotClassification = '';
+            }
+        }
+
+        const item = { itemName, quantity, category: category || 'Uncategorized', location, dotClassification };
         const existingItem = inventory.find(i => i.itemName.toLowerCase() === itemName.toLowerCase() && i.location === location);
 
         if (existingItem) {
@@ -66,7 +105,7 @@ async function saveItem(item, isUpdate = false, action = 'add') {
                 timestamp: Date.now(),
                 action: isUpdate ? 'update' : 'add',
                 itemName: item.itemName,
-                details: JSON.stringify({ quantity: item.quantity, location: item.location })
+                details: JSON.stringify({ quantity: item.quantity, location: item.location, dotClassification: item.dotClassification })
             };
             auditStore.add(auditEntry);
             transaction.oncomplete = () => {
@@ -86,6 +125,89 @@ async function saveItem(item, isUpdate = false, action = 'add') {
     }
 }
 
+// NEW: Edit Item
+function openEditModal(id) {
+    try {
+        const item = inventory.find(i => i.id === id);
+        if (!item) {
+            showNotification('Item not found.', 'error');
+            return;
+        }
+        selectedItemId = id;
+        document.getElementById('editItemName').value = item.itemName;
+        document.getElementById('editQuantity').value = item.quantity;
+        document.getElementById('editCategory').value = item.category;
+        document.getElementById('editLocation').value = item.location;
+        document.getElementById('editDotClassification').value = item.dotClassification || '';
+        updateCategoryDropdown('editCategory');
+        updateDotDropdown('editDotClassification');
+        openModal('editModal');
+    } catch (err) {
+        debugLog('Error opening edit modal', err);
+        showNotification('Error opening edit modal.', 'error');
+    }
+}
+
+async function saveEditedItem() {
+    try {
+        const item = inventory.find(i => i.id === selectedItemId);
+        if (!item) {
+            showNotification('Item not found.', 'error');
+            return;
+        }
+        const itemName = document.getElementById('editItemName').value.trim();
+        const quantity = parseInt(document.getElementById('editQuantity').value) || 1;
+        let category = document.getElementById('editCategory').value;
+        const location = document.getElementById('editLocation').value || 'Store';
+        let dotClassification = document.getElementById('editDotClassification').value;
+
+        if (!itemName) {
+            showNotification('Item name is required.', 'error');
+            return;
+        }
+        if (quantity < 1) {
+            showNotification('Quantity must be at least 1.', 'error');
+            return;
+        }
+
+        if (category === 'add-new') {
+            const newCategory = prompt('Enter new category name:');
+            if (newCategory && !settings.categories.includes(newCategory)) {
+                settings.categories.push(newCategory);
+                saveSettings('categories', settings.categories);
+                updateCategoryDropdown('editCategory');
+                category = newCategory;
+            } else {
+                category = item.category;
+            }
+        }
+
+        if (dotClassification === 'add-new') {
+            const newDot = prompt('Enter new DOT classification:');
+            if (newDot && !settings.dotClassifications.includes(newDot)) {
+                settings.dotClassifications.push(newDot);
+                saveSettings('dotClassifications', settings.dotClassifications);
+                updateDotDropdown('editDotClassification');
+                dotClassification = newDot;
+            } else {
+                dotClassification = item.dotClassification || '';
+            }
+        }
+
+        item.itemName = itemName;
+        item.quantity = quantity;
+        item.category = category || 'Uncategorized';
+        item.location = location;
+        item.dotClassification = dotClassification;
+        await saveItem(item, true, 'edit');
+        closeModal('editModal');
+        selectedItemId = null;
+    } catch (err) {
+        debugLog('Error saving edited item', err);
+        showNotification('Error saving edited item.', 'error');
+    }
+}
+
 async function deleteItem(id) {
     if (!confirm('Delete this item?')) return;
     try {
@@ -100,7 +222,7 @@ async function deleteItem(id) {
                     timestamp: Date.now(),
                     action: 'delete',
                     itemName: item.itemName,
-                    details: JSON.stringify({ quantity: item.quantity, location: item.location })
+                    details: JSON.stringify({ quantity: item.quantity, location: item.location, dotClassification: item.dotClassification })
                 });
                 transaction.oncomplete = () => {
                     loadInventory();
@@ -156,7 +278,7 @@ function recordSale() {
             timestamp: Date.now(),
             action: 'sale',
             itemName,
-            details: JSON.stringify({ quantity })
+            details: JSON.stringify({ quantity, dotClassification: item.dotClassification })
         });
 
         transaction.oncomplete = () => {
@@ -229,11 +351,13 @@ function renderReportsTable() {
             const itemsInCategory = inventory.filter(item => item.category === category);
             const totalItems = itemsInCategory.length;
             const totalQuantity = itemsInCategory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+            const dotClasses = [...new Set(itemsInCategory.map(item => item.dotClassification || 'None'))].join(', ');
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="px-5 py-3 text-sm">${category}</td>
                 <td class="px-5 py-3 text-sm">${totalItems}</td>
                 <td class="px-5 py-3 text-sm">${totalQuantity}</td>
+                <td class="px-5 py-3 text-sm">${dotClasses}</td>
             `;
             tableBody.appendChild(row);
         });
@@ -253,7 +377,8 @@ function exportToExcel() {
             'Item Name': item.itemName,
             Quantity: item.quantity,
             Category: item.category,
-            Location: item.location
+            Location: item.location,
+            'DOT Classification': item.dotClassification || 'None'
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
@@ -276,8 +401,8 @@ function exportToPDF() {
         const doc = new jsPDF();
         doc.text('Inventory Report', 20, 20);
         doc.autoTable({
-            head: [['Item Name', 'Quantity', 'Category', 'Location']],
-            body: inventory.map(item => [item.itemName, item.quantity, item.category, item.location]),
+            head: [['Item Name', 'Quantity', 'Category', 'Location', 'DOT Classification']],
+            body: inventory.map(item => [item.itemName, item.quantity, item.category, item.location, item.dotClassification || 'None']),
             startY: 30
         });
         doc.save('inventory.pdf');
@@ -318,7 +443,7 @@ async function loadSettings() {
     try {
         const transaction = db.transaction([SETTINGS_STORE], 'readonly');
         const store = transaction.objectStore(SETTINGS_STORE);
-        const keys = ['theme', 'shopName', 'locations', 'debugMode'];
+        const keys = ['theme', 'shopName', 'locations', 'debugMode', 'categories', 'dotClassifications', 'filters'];
         const results = await Promise.all(keys.map(key => store.get(key)));
         results.forEach((result, i) => {
             if (result.result) {
@@ -332,6 +457,11 @@ async function loadSettings() {
             document.documentElement.classList.add('dark');
         }
         updateLocationDropdown();
+        updateCategoryDropdown();
+        updateDotDropdown();
+        updateCategoryList();
+        updateDotList();
+        loadFilterSettings();
     } catch (err) {
         debugLog('Error loading settings', err);
         showNotification('Error loading settings.', 'error');
@@ -394,12 +524,17 @@ function addLocation() {
 function updateLocationDropdown() {
     try {
         const locationSelect = document.getElementById('location');
-        locationSelect.innerHTML = '<option value="">Select or add location</option>';
-        settings.locations.forEach(loc => {
-            const option = document.createElement('option');
-            option.value = loc;
-            option.textContent = loc;
-            locationSelect.appendChild(option);
+        const editLocationSelect = document.getElementById('editLocation');
+        [locationSelect, editLocationSelect].forEach(select => {
+            if (select) {
+                select.innerHTML = '<option value="">Select or add location</option>';
+                settings.locations.forEach(loc => {
+                    const option = document.createElement('option');
+                    option.value = loc;
+                    option.textContent = loc;
+                    select.appendChild(option);
+                });
+            }
         });
     } catch (err) {
         debugLog('Error updating location dropdown', err);
@@ -407,179 +542,35 @@ function updateLocationDropdown() {
     }
 }
 
-function backupData() {
+// NEW: Category Presets
+function addCategoryPreset() {
     try {
-        const data = { inventory, sales, auditLog, settings };
-        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'chainsync_backup.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        showNotification('Data backed up.', 'success');
+        const category = document.getElementById('categoryPreset').value.trim();
+        if (category && !settings.categories.includes(category)) {
+            settings.categories.push(category);
+            saveSettings('categories', settings.categories);
+            updateCategoryDropdown();
+            updateCategoryList();
+            document.getElementById('categoryPreset').value = '';
+            showNotification('Category added.', 'success');
+        }
     } catch (err) {
-        debugLog('Error backing up data', err);
-        showNotification('Error backing up data.', 'error');
+        debugLog('Error adding category preset', err);
+        showNotification('Error adding category preset.', 'error');
     }
 }
 
-function clearDatabase() {
-    if (!confirm('Reset all data? This cannot be undone.')) return;
+function updateCategoryDropdown(id = 'category') {
     try {
-        const transaction = db.transaction([INVENTORY_STORE, SALES_STORE, AUDIT_STORE, SETTINGS_STORE], 'readwrite');
-        [INVENTORY_STORE, SALES_STORE, AUDIT_STORE, SETTINGS_STORE].forEach(storeName => {
-            transaction.objectStore(storeName).clear();
+        const select = document.getElementById(id);
+        select.innerHTML = '<option value="">Select category</option>';
+        settings.categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
         });
-        transaction.oncomplete = () => {
-            inventory = [];
-            sales = [];
-            auditLog = [];
-            settings = { theme: 'light', shopName: '', locations: [], debugMode: false };
-            loadInventory();
-            loadSales();
-            loadAuditLog();
-            loadSettings();
-            showNotification('Data reset.', 'success');
-        };
+        select.innerHTML += '<option value="add-new">Add New Category...</option>';
     } catch (err) {
-        debugLog('Error clearing database', err);
-        showNotification('Error clearing database.', 'error');
-    }
-}
-
-function startScanner() {
-    try {
-        if (!window.Html5Qrcode) {
-            showNotification('Scanner not available.', 'error');
-            return;
-        }
-        openModal('scanModal');
-        html5QrCode = new Html5Qrcode('reader');
-        html5QrCode.start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-                document.getElementById('itemName').value = decodedText;
-                stopScanner();
-                quickAddItem();
-            },
-            (error) => {
-                debugLog('QR scan error', error);
-            }
-        ).catch(err => {
-            debugLog('Error starting scanner', err);
-            showNotification('Error accessing camera.', 'error');
-            stopScanner();
-        });
-    } catch (err) {
-        debugLog('Error starting scanner', err);
-        showNotification('Error starting scanner.', 'error');
-    }
-}
-
-function stopScanner() {
-    try {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                html5QrCode = null;
-                closeModal('scanModal');
-            }).catch(err => {
-                debugLog('Error stopping scanner', err);
-            });
-        } else {
-            closeModal('scanModal');
-        }
-    } catch (err) {
-        debugLog('Error stopping scanner', err);
-        showNotification('Error stopping scanner.', 'error');
-    }
-}
-
-function clearForm() {
-    try {
-        document.getElementById('itemName').value = '';
-        document.getElementById('quantity').value = '1';
-        document.getElementById('category').value = '';
-        document.getElementById('location').value = '';
-        document.getElementById('itemName').focus();
-    } catch (err) {
-        debugLog('Error clearing form', err);
-        showNotification('Error clearing form.', 'error');
-    }
-}
-
-function getFilteredInventory() {
-    try {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        return inventory.filter(item =>
-            item.itemName.toLowerCase().includes(searchTerm) ||
-            item.category.toLowerCase().includes(searchTerm) ||
-            item.location.toLowerCase().includes(searchTerm)
-        );
-    } catch (err) {
-        debugLog('Error filtering inventory', err);
-        showNotification('Error filtering inventory.', 'error');
-        return [];
-    }
-}
-
-function renderTable() {
-    try {
-        const tableBody = document.getElementById('inventoryBody');
-        tableBody.innerHTML = '';
-
-        const filteredInventory = getFilteredInventory();
-        const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
-        const start = (currentPage - 1) * itemsPerPage;
-        const paginatedInventory = filteredInventory.slice(start, start + itemsPerPage);
-
-        if (paginatedInventory.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-5 text-gray-500">No items found.</td></tr>';
-            renderPagination(totalPages);
-            return;
-        }
-
-        paginatedInventory.forEach(item => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-5 py-3 text-sm">${item.itemName}</td>
-                <td class="px-5 py-3 text-sm">${item.quantity}</td>
-                <td class="px-5 py-3 text-sm">${item.category}</td>
-                <td class="px-5 py-3 text-sm">${item.location}</td>
-                <td class="px-5 py-3 text-sm">
-                    <button onclick="deleteItem(${item.id})" class="tw-button-danger py-1 px-2 text-xs">Delete</button>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
-
-        renderPagination(totalPages);
-    } catch (err) {
-        debugLog('Error rendering table', err);
-        showNotification('Error rendering table.', 'error');
-        document.getElementById('inventoryBody').innerHTML = '<tr><td colspan="5" class="text-center p-5 text-red-500">Error loading table. Please refresh.</td></tr>';
-    }
-}
-
-function renderPagination(totalPages) {
-    try {
-        const pagination = document.getElementById('pagination');
-        pagination.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) {
-            const button = document.createElement('button');
-            button.textContent = i;
-            button.className = i === currentPage ? 'active' : '';
-            button.onclick = () => {
-                currentPage = i;
-                renderTable();
-            };
-            pagination.appendChild(button);
-        }
-    } catch (err) {
-        debugLog('Error rendering pagination', err);
-        showNotification('Error rendering pagination.', 'error');
-    }
-}
-
-window.addEventListener('load', initializeApp);
+        debugLog('Error updating category dropdown', err);
+        showNotification('Error updating category dropdown.', 'error');

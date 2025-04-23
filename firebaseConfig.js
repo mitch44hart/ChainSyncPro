@@ -10,12 +10,12 @@
  // Get this from your Firebase project settings:
  // Project settings > General > Your apps > SDK setup and configuration
  const firebaseConfig = {
-   apiKey: "YOUR_API_KEY", // Replace
-   authDomain: "YOUR_PROJECT_ID.firebaseapp.com", // Replace
-   projectId: "YOUR_PROJECT_ID", // Replace
-   storageBucket: "YOUR_PROJECT_ID.appspot.com", // Replace
-   messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Replace
-   appId: "YOUR_APP_ID" // Replace
+  apiKey: "AIzaSyCvthCZO55TsBkXCwRGAhe5On3-uTHUTvs",
+  authDomain: "chainsyncpro-8f18e.firebaseapp.com",
+  projectId: "chainsyncpro-8f18e",
+  storageBucket: "chainsyncpro-8f18e.firebasestorage.app",
+  messagingSenderId: "980189721849",
+  appId: "1:980189721849:web:74d84bd4a6acb1ee675e28",
  };
 
  // Initialize Firebase

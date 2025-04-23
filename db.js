@@ -1,6 +1,6 @@
 let db;
 const DB_NAME = 'ChainSyncLiteDB';
-const DB_VERSION = 8;
+const DB_VERSION = 9; // NEW: Incremented version for schema change
 const INVENTORY_STORE = 'inventory';
 const SETTINGS_STORE = 'settings';
 const AUDIT_STORE = 'audit';
@@ -18,6 +18,8 @@ function initializeDatabase(onSuccess) {
                 invStore.createIndex('category', 'category', { unique: false });
                 invStore.createIndex('location', 'location', { unique: false });
                 invStore.createIndex('quantity', 'quantity', { unique: false });
+                // NEW: Index for DOT classification
+                invStore.createIndex('dotClassification', 'dotClassification', { unique: false });
             }
             if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
                 db.createObjectStore(SETTINGS_STORE, { keyPath: 'key' });

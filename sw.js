@@ -7,6 +7,7 @@ const urlsToCache = [
   '/ui.js',
   '/inventory.js',
   '/db.js',
+  '/utils.js',
   '/icons/favicon.ico',
   '/icons/icon-192x192.png',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',

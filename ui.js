@@ -143,18 +143,72 @@ function setupEventListeners() {
             }
         }
 
-        document.getElementById('searchInput').addEventListener('input', debounce(() => {
-            currentPage = 1;
-            renderTable();
-        }, 300));
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                startScanner();
+        // NEW: Filter inputs
+        const filterInputs = ['filterName', 'filterCategory', 'filterDot', 'filterQuantity'];
+        filterInputs.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('input', debounce(() => {
+                    currentPage = 1;
+                    saveFilterSettings();
+                    renderTable();
+                }, 300));
             }
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                quickAddItem();
+        });
+
+        // NEW: Quantity slider display
+        const quantitySlider = document.getElementById('filterQuantity');
+        if (quantitySlider) {
+            quantitySlider.addEventListener('input', () => {
+                document.getElementById('quantityValue').textContent = `${quantitySlider.value}+`;
+            });
+        }
+
+        // NEW: Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey) {
+                switch (e.key) {
+                    case '1':
+                        e.preventDefault();
+                        switchSection('inventory');
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        switchSection('sales');
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        switchSection('reports');
+                        break;
+                    case '4':
+                        e.preventDefault();
+                        switchSection('audit');
+                        break;
+                    case '5':
+                        e.preventDefault();
+                        switchSection('settings');
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        startScanner();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        quickAddItem();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        if (selectedItemId) openEditModal(selectedItemId);
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        openBulkImportModal();
+                        break;
+                    case '/':
+                        e.preventDefault();
+                        openModal('shortcutModal');
+                        break;
+                }
             }
         });
 

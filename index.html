@@ -1,312 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="font-[Inter]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1f2937">
+  <meta name="description" content="ChainSync Lite - Inventory management app with Firebase">
+  <meta name="theme-color" content="#22c55e">
+  <title>ChainSync Lite</title>
+  <link rel="stylesheet" href="/dist/styles.css?v=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icons/favicon.ico">
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-  <title>ChainSync Lite - Inventory (Firebase)</title>
-  <link rel="stylesheet" href="/dist/styles.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
 </head>
-<body class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen">
+<body>
   <!-- Loading Spinner -->
   <div id="loading" class="hidden">
     <div class="spinner"></div>
   </div>
 
-  <!-- Sidebar Toggle -->
-  <button id="toggleSidebar" aria-label="Toggle sidebar">
-    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+  <!-- Sidebar Toggle Button -->
+  <button id="toggleSidebar" class="lg:hidden">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
     </svg>
   </button>
 
   <!-- Sidebar -->
-  <div id="sidebar" class="hidden">
-    <nav class="p-4">
-      <h2 class="text-xl font-bold mb-4">ChainSync Lite</h2>
-      <ul class="space-y-2">
-        <li><a href="#inventory" class="nav-link" id="nav-inventory">Inventory</a></li>
-        <li><a href="#sales" class="nav-link" id="nav-sales">Sales</a></li>
-        <li><a href="#reports" class="nav-link" id="nav-reports">Reports</a></li>
-        <li><a href="#audit" class="nav-link" id="nav-audit">Audit Log</a></li>
-        <li><a href="#settings" class="nav-link" id="nav-settings">Settings</a></li>
-      </ul>
+  <div id="sidebar" class="lg:translate-x-0">
+    <nav class="flex flex-col p-4 space-y-2">
+      <a href="#dashboard" class="nav-link active">Dashboard</a>
+      <a href="#inventory" class="nav-link">Inventory</a>
+      <a href="#reports" class="nav-link">Reports</a>
+      <a href="#settings" class="nav-link">Settings</a>
     </nav>
   </div>
 
   <!-- Main Content -->
-  <div id="app-content" class="hidden flex-grow">
+  <div class="flex-1 p-4 lg:ml-64">
     <!-- Auth Container -->
-    <div id="auth-container" class="hidden p-4">
-      <p id="user-email" class="text-gray-700 dark:text-gray-300"></p>
-      <button id="logout-button" class="tw-button-danger mt-2">Logout</button>
+    <div id="auth-container" class="hidden mb-4">
+      <span id="user-email" class="text-gray-700 dark:text-gray-300"></span>
+      <button id="logout-button" class="tw-button-danger ml-4">Logout</button>
     </div>
 
     <!-- Login Prompt -->
-    <div id="login-prompt" class="p-6 max-w-md mx-auto">
-      <h1 class="text-2xl font-bold mb-4">ChainSync Lite</h1>
+    <div id="login-prompt" class="section max-w-md mx-auto">
+      <h1 class="mb-4">ChainSync Lite</h1>
       <div class="form-group">
         <label for="login-email" class="tw-label">Email</label>
-        <input type="email" id="login-email" class="tw-input" placeholder="Enter your email" aria-label="Email">
+        <input type="email" id="login-email" class="tw-input" placeholder="Enter your email">
       </div>
       <div class="form-group">
         <label for="login-password" class="tw-label">Password</label>
-        <input type="password" id="login-password" class="tw-input" placeholder="Enter your password" aria-label="Password">
+        <input type="password" id="login-password" class="tw-input" placeholder="Enter your password">
       </div>
-      <p id="auth-error" class="text-red-500 text-sm mt-2"></p>
-      <div class="flex gap-2 mt-4">
-        <button id="login-button" class="tw-button-primary">Login</button>
-        <button id="signup-button" class="tw-button-secondary">Sign Up</button>
-      </div>
+      <div id="auth-error" class="text-red-500 text-sm mb-4"></div>
+      <button id="login-button" class="tw-button-primary w-full">Login</button>
+      <button id="signup-button" class="tw-button-secondary w-full mt-2">Sign Up</button>
     </div>
 
-    <!-- Inventory Section -->
-    <div id="inventory-section" class="section p-6">
-      <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Inventory</h1>
-      <div class="space-y-6">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Add Item</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div class="form-group">
-              <label for="itemName" class="tw-label">Item Name</label>
-              <input type="text" id="itemName" class="tw-input" placeholder="Enter item name">
-            </div>
-            <div class="form-group">
-              <label for="quantity" class="tw-label">Quantity</label>
-              <input type="number" id="quantity" class="tw-input" value="1" min="0">
-            </div>
-            <div class="form-group">
-              <label for="category" class="tw-label">Category</label>
-              <select id="category" class="tw-input">
-                <option value="">Select or type category</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="location" class="tw-label">Location</label>
-              <select id="location" class="tw-input">
-                <option value="">Select or add location</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="dotClass" class="tw-label">DOT Class</label>
-              <select id="dotClass" class="tw-input">
-                <option value="None">None</option>
-                <option value="Flammable">Flammable</option>
-                <option value="Corrosive">Corrosive</option>
-                <option value="Toxic">Toxic</option>
-                <option value="Oxidizer">Oxidizer</option>
-                <option value="Explosive">Explosive</option>
-                <option value="Gas">Gas</option>
-                <option value="Radioactive">Radioactive</option>
-                <option value="Miscellaneous">Miscellaneous</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="price" class="tw-label">Price ($)</label>
-              <input type="number" id="price" class="tw-input" step="0.01" min="0" placeholder="Enter price">
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-2 mt-4">
-            <button id="quick-add-item-btn" class="tw-button-primary">Quick Add (Ctrl+Enter)</button>
-            <button id="clear-form-btn" class="tw-button-secondary">Clear Form</button>
-            <button id="start-scan-btn" class="tw-button-primary">Scan Barcode (Ctrl+S)</button>
-            <button id="bulk-upload-btn" class="tw-button-primary">Bulk Upload (CSV)</button>
-            <input type="file" id="bulk-upload-input" class="hidden" accept=".csv">
-          </div>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Inventory List</h2>
-          <div class="form-group mb-4">
-            <label for="searchInput" class="tw-label">Search Items</label>
-            <input type="text" id="searchInput" class="tw-input" placeholder="Search by name or category">
-          </div>
-          <div class="table-responsive">
-            <table id="inventoryTable" class="w-full">
-              <thead>
-                <tr>
-                  <th data-sort-col="0" class="cursor-pointer" aria-sort="none">Name</th>
-                  <th data-sort-col="1" class="cursor-pointer" aria-sort="none">Quantity</th>
-                  <th data-sort-col="2" class="cursor-pointer" aria-sort="none">Category</th>
-                  <th data-sort-col="3" class="cursor-pointer" aria-sort="none">Location</th>
-                  <th data-sort-col="4" class="cursor-pointer" aria-sort="none">DOT Class</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="inventoryBody"></tbody>
-            </table>
-          </div>
+    <!-- App Content -->
+    <div id="app-content" class="hidden">
+      <!-- Dashboard Section -->
+      <div id="dashboard" class="section active">
+        <h2 class="mb-4">Dashboard</h2>
+        <canvas id="categoryChart" class="mb-4"></canvas>
+      </div>
+
+      <!-- Inventory Section -->
+      <div id="inventory" class="section">
+        <h2 class="mb-4">Inventory</h2>
+        <button id="add-item" class="tw-button-primary mb-4">Add Item</button>
+        <button id="bulk-upload" class="tw-button-secondary mb-4">Bulk Upload</button>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-table"></tbody>
+          </table>
         </div>
       </div>
-    </div>
 
-    <!-- Sales Section -->
-    <div id="sales-section" class="section p-6">
-      <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Sales</h1>
-      <div class="space-y-6">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Record Sale</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-group">
-              <label for="saleItemName" class="tw-label">Item Name</label>
-              <input type="text" id="saleItemName" class="tw-input" placeholder="Enter item name">
-            </div>
-            <div class="form-group">
-              <label for="saleQuantity" class="tw-label">Quantity</label>
-              <input type="number" id="saleQuantity" class="tw-input" value="1" min="1">
-            </div>
-          </div>
-          <div class="flex gap-2 mt-4">
-            <button id="record-sale-btn" class="tw-button-primary">Record Sale (Ctrl+R)</button>
-            <button id="clear-sale-form-btn" class="tw-button-secondary">Clear Form</button>
-          </div>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Sales History</h2>
-          <div class="table-responsive">
-            <table id="salesTable" class="w-full">
-              <thead>
-                <tr>
-                  <th data-sort-col="0" class="cursor-pointer" aria-sort="none">Timestamp</th>
-                  <th data-sort-col="1" class="cursor-pointer" aria-sort="none">Item Name</th>
-                  <th data-sort-col="2" class="cursor-pointer" aria-sort="none">Quantity</th>
-                </tr>
-              </thead>
-              <tbody id="salesBody"></tbody>
-            </table>
-          </div>
-        </div>
+      <!-- Reports Section -->
+      <div id="reports" class="section">
+        <h2 class="mb-4">Reports</h2>
+        <button id="generate-report" class="tw-button-primary mb-4">Generate Report</button>
       </div>
-    </div>
 
-    <!-- Reports Section -->
-    <div id="reports-section" class="section p-6">
-      <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Reports</h1>
-      <div class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-            <h3 class="text-lg font-semibold">Total Items</h3>
-            <p id="reportTotalItems" class="text-2xl font-bold text-primary">0</p>
-          </div>
-          <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-            <h3 class="text-lg font-semibold">Total Stock</h3>
-            <p id="reportTotalStock" class="text-2xl font-bold text-primary">0</p>
-          </div>
-          <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-            <h3 class="text-lg font-semibold">Inventory Value</h3>
-            <p id="reportInventoryValue" class="text-2xl font-bold text-primary">$0.00</p>
-          </div>
+      <!-- Settings Section -->
+      <div id="settings" class="section">
+        <h2 class="mb-4">Settings</h2>
+        <div class="form-group">
+          <label for="theme" class="tw-label">Theme</label>
+          <select id="theme" class="tw-input">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">System</option>
+          </select>
         </div>
-        <div class="flex gap-2">
-          <button id="report-export-excel-btn" class="tw-button-primary">Export to Excel</button>
-          <button id="report-export-pdf-btn" class="tw-button-primary">Export to PDF</button>
-        </div>
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Category Breakdown</h2>
-          <div class="table-responsive">
-            <table id="reportsTable" class="w-full">
-              <thead>
-                <tr>
-                  <th data-sort-col="0" class="cursor-pointer" aria-sort="none">Category</th>
-                  <th data-sort-col="1" class="cursor-pointer" aria-sort="none">Total Items</th>
-                  <th data-sort-col="2" class="cursor-pointer" aria-sort="none">Total Quantity</th>
-                </tr>
-              </thead>
-              <tbody id="reportsBody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Stock by Category</h2>
-          <canvas id="categoryChart" class="w-full h-64"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Audit Log Section -->
-    <div id="audit-section" class="section p-6">
-      <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Audit Log</h1>
-      <div class="table-responsive">
-        <table id="auditTable" class="w-full">
-          <thead>
-            <tr>
-              <th data-log-sort-col="0" class="cursor-pointer" aria-sort="none">Timestamp</th>
-              <th data-log-sort-col="1" class="cursor-pointer" aria-sort="none">Action</th>
-              <th data-log-sort-col="2" class="cursor-pointer" aria-sort="none">Item Name</th>
-              <th data-log-sort-col="3" class="cursor-pointer" aria-sort="none">Details</th>
-            </tr>
-          </thead>
-          <tbody id="auditBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Settings Section -->
-    <div id="settings-section" class="section p-6">
-      <h1 class="text-3xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">Settings</h1>
-      <div class="space-y-6">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Shop Details</h2>
-          <div class="form-group">
-            <label for="shopName" class="tw-label">Shop Name</label>
-            <input type="text" id="shopName" class="tw-input" placeholder="Enter shop name">
-          </div>
-          <button id="save-shop-details-btn" class="tw-button-primary mt-2">Save Shop Details</button>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Locations</h2>
-          <div class="form-group">
-            <label for="newLocation" class="tw-label">Add New Location</label>
-            <input type="text" id="newLocation" class="tw-input" placeholder="Enter location name">
-          </div>
-          <button id="add-location-btn" class="tw-button-primary mt-2">Add Location</button>
-          <ul id="locationList" class="mt-4 space-y-2"></ul>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Categories</h2>
-          <div class="form-group">
-            <label for="newCategory" class="tw-label">Add New Category</label>
-            <input type="text" id="newCategory" class="tw-input" placeholder="Enter category name">
-          </div>
-          <button id="add-category-btn" class="tw-button-primary mt-2">Add Category</button>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Preferences</h2>
-          <div class="form-group">
-            <label for="darkTheme" class="tw-label">Dark Theme</label>
-            <input type="checkbox" id="darkTheme" class="tw-checkbox">
-          </div>
-          <div class="form-group">
-            <label for="lowStockThreshold" class="tw-label">Low Stock Threshold</label>
-            <input type="number" id="lowStockThreshold" class="tw-input" value="10" min="1">
-          </div>
-          <button id="save-settings-btn" class="tw-button-primary mt-2">Save Settings</button>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Data Management</h2>
-          <div class="flex flex-wrap gap-2">
-            <button id="backup-data-btn" class="tw-button-primary">Backup Data</button>
-            <button id="restore-data-btn" class="tw-button-primary">Restore Data</button>
-            <button id="settings-clear-db-btn" class="tw-button-danger">Reset All Data</button>
-            <button id="settings-clear-log-btn" class="tw-button-danger">Clear Audit Log</button>
-          </div>
-        </div>
-        <hr class="dark:border-gray-700">
-        <div>
-          <h2 class="text-xl font-semibold mb-3">Debug</h2>
-          <div class="form-group">
-            <label for="debugMode" class="tw-label">Enable Debug Mode</label>
-            <input type="checkbox" id="debugMode" class="tw-checkbox">
-          </div>
+        <div class="form-group">
+          <label class="tw-label"><input type="checkbox" id="debugMode" class="tw-checkbox"> Debug Mode</label>
         </div>
       </div>
     </div>
@@ -314,26 +114,16 @@
 
   <!-- Scan Modal -->
   <div id="scanModal" class="hidden">
-    <div class="relative bg-white dark:bg-gray-800 p-4 rounded-lg max-w-lg w-full">
-      <button id="scan-modal-close-btn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-      <h2 class="text-xl font-semibold mb-4">Scan Barcode</h2>
-      <div id="reader" class="w-full"></div>
-      <button id="cancel-scan-btn" class="tw-button-secondary mt-4">Cancel</button>
-    </div>
+    <div id="reader"></div>
   </div>
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
